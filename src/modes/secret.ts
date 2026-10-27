@@ -187,7 +187,7 @@ export class CruiseEx extends Mode {
         x: gem.x,
         y: gem.y,
         z: gem.z,
-        src: `${RES}lastBoss/cruise/${gem.kind}_${gem.color}${gem.bright ? "_bright" : ""}.png`,
+        src: `${RES}lastBoss/cruise/${gem.kind}_${gem.color}${gem.bright ? "_bright" : ""}.webp`,
         scale: 0.2,
         opacity: gem.alpha,
       }),
@@ -212,7 +212,7 @@ export class CruiseEx extends Mode {
     if (gem) {
       const pop = popup(this.time - this.kickAt - 1, 2);
       const reaction = reactions[gem.color];
-      if (pop) nodes.push(img("reaction", `${SPR}lastBoss/${reaction.file}.png`, 0, 150, reaction.w, reaction.h, { alpha: pop.alpha, scale: pop.scale }));
+      if (pop) nodes.push(img("reaction", `${SPR}lastBoss/${reaction.file}.webp`, 0, 150, reaction.w, reaction.h, { alpha: pop.alpha, scale: pop.scale }));
     }
     return nodes;
   }

@@ -5,7 +5,8 @@ type Options = {
   layer: HTMLElement;
   toStage: (clientX: number, clientY: number) => { x: number; y: number };
   enabled: () => boolean;
-  row: (zone: RowZone) => void;
+  // `x`/`y`: where the stroke started, in stage pixels.
+  row: (zone: RowZone, x: number, y: number) => void;
   lift?: (zone: RowZone) => void;
 };
 
@@ -22,7 +23,7 @@ type Stroke = {
 
 const STROKE = 140;
 const REARM = 50;
-const IGNORE = "button, input, textarea, select, a, form, .title, .ending, .result, .trophies, .debug-menu, .debug-pad, .scene-tap, .tap-catch";
+const IGNORE = "button, input, textarea, select, a, form, .title, .ending, .result, .trophies, .debug-menu, .debug-pad, .tap-catch";
 
 export function zoneAt(x: number): RowZone {
   if (x < 640) return "left";
@@ -79,7 +80,7 @@ export class RowInput {
         stroke.anchorX = x;
       } else if (dy >= STROKE && Math.abs(x - stroke.anchorX) < dy) {
         if (this.options.enabled()) {
-          this.options.row(stroke.zone);
+          this.options.row(stroke.zone, stroke.anchorX, stroke.anchorY);
           this.splash(stroke, y);
         }
         stroke.armed = false;

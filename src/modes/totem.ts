@@ -1,4 +1,4 @@
-import { img, outQuad, pick, seg, shuffle, SPR, RES, txt, type SceneNode } from "../scene";
+import { img, outQuad, pick, rect, seg, shuffle, SPR, RES, txt, type SceneNode } from "../scene";
 import { Boss } from "./boss";
 import type { Host, ModeView } from "./mode";
 
@@ -90,6 +90,8 @@ const arrowPos: [number, number][] = [
   [650, 100],
   [650, -300],
 ];
+// Scene y of the line between the upper and lower panels (midway between the arrow rows).
+const QUADRANT_SPLIT_Y = -100;
 
 type Spin = { from: number[]; to: number[]; at: number };
 type Needle = { from: number; to: number; at: number };
@@ -149,6 +151,12 @@ export class Totem extends Boss {
     this.gauges[index] += 0.2;
   }
 
+  // A stroke anywhere inside a quadrant pushes that quadrant's panel (panelPos order).
+  strokeAt(x: number, y: number): void {
+    const top = y < 540 - QUADRANT_SPLIT_Y;
+    this.tap(x < 960 ? (top ? 0 : 1) : top ? 2 : 3);
+  }
+
   debugSolve(): void {
     if (!this.playing || this.moving || !this.choices.length) return;
     const score = (word: string) => [...word].slice(0, 4).reduce((sum, kana) => sum + face(kana).plus, 0);
@@ -195,10 +203,10 @@ export class Totem extends Boss {
   }
 
   private panelSprite(i: number): string {
-    if (this.ex) return `${RES}totem/totem_4moji_1.png`;
+    if (this.ex) return `${RES}totem/totem_4moji_1.webp`;
     const band = (15 - this.rest) % 5;
-    if (band === 4) return `${RES}totem/totem_4moji_${String(i + 1).repeat(4)}.png`;
-    return `${RES}totem/totem_4moji_${band + 1}.png`;
+    if (band === 4) return `${RES}totem/totem_4moji_${String(i + 1).repeat(4)}.webp`;
+    return `${RES}totem/totem_4moji_${band + 1}.webp`;
   }
 
   private select(index: number): void {
@@ -300,11 +308,24 @@ export class Totem extends Boss {
   protected nodes(): SceneNode[] {
     const nodes: SceneNode[] = [];
     const live = this.choices.length > 0 && (this.stage === "play" || this.stage === "fail" || this.stage === "end");
+    if (this.stage === "play") {
+      const topH = 540 - QUADRANT_SPLIT_Y;
+      const bottomH = 1080 - topH;
+      const tints = ["rgba(255,255,255,0.07)", "rgba(0,0,0,0.07)", "rgba(0,0,0,0.07)", "rgba(255,255,255,0.07)"];
+      [
+        [-480, 540 - topH / 2, topH],
+        [-480, -540 + bottomH / 2, bottomH],
+        [480, 540 - topH / 2, topH],
+        [480, -540 + bottomH / 2, bottomH],
+      ].forEach(([x, y, h], i) => nodes.push(rect(`quadrant${i}`, x, y, 960, h, tints[i])));
+      nodes.push(rect("quadrant-v", 0, 0, 4, 1080, "rgba(255,255,255,0.3)"));
+      nodes.push(rect("quadrant-h", 0, QUADRANT_SPLIT_Y, 1920, 4, "rgba(255,255,255,0.3)"));
+    }
     if (!this.ex) {
-      nodes.push(img("meter", `${SPR}totem/totem_kokorometer.png`, 0, -410, 400.4, 240.4));
+      nodes.push(img("meter", `${SPR}totem/totem_kokorometer.webp`, 0, -410, 400.4, 240.4));
       const theta = ((this.displayLife() - 20) * -4.5 * Math.PI) / 180;
-      nodes.push(img("needle", `${SPR}totem/totem_kokorogauge.png`, -100 * Math.sin(theta), -510 + 100 * Math.cos(theta), 60.4, 220.4, { rot: (this.displayLife() - 20) * -4.5 }));
-      nodes.push(img("needle-heart", `${SPR}totem/totem_kokorogauge_heart.png`, 0, -510, 60.4, 60.4));
+      nodes.push(img("needle", `${SPR}totem/totem_kokorogauge.webp`, -100 * Math.sin(theta), -510 + 100 * Math.cos(theta), 60.4, 220.4, { rot: (this.displayLife() - 20) * -4.5 }));
+      nodes.push(img("needle-heart", `${SPR}totem/totem_kokorogauge_heart.webp`, 0, -510, 60.4, 60.4));
     }
     panelPos.forEach(([x, y], i) => {
       nodes.push(img(`panel${i}`, this.panelSprite(i), x, y, 540.6, 135.6, { tap: i }));
@@ -313,11 +334,11 @@ export class Totem extends Boss {
     });
     arrowPos.forEach(([x, y], i) => {
       const yellow = this.selected === i && this.moving;
-      nodes.push(img(`arrow${i}`, `${SPR}ui/arrow_back_left.png`, x, y, 240, 240, { tap: i }));
-      nodes.push(img(`arrow${i}-gauge`, `${RES}ui/${yellow ? "arrow_left_yellow" : "arrow_left"}.png`, x, y, 240, 240, { fill: yellow ? 1 : Math.min(this.gauges[i], 1), fillFrom: "right" }));
+      nodes.push(img(`arrow${i}`, `${SPR}ui/arrow_back_left.webp`, x, y, 240, 240, { tap: i }));
+      nodes.push(img(`arrow${i}-gauge`, `${RES}ui/${yellow ? "arrow_left_yellow" : "arrow_left"}.webp`, x, y, 240, 240, { fill: yellow ? 1 : Math.min(this.gauges[i], 1), fillFrom: "right" }));
     });
     if (live && this.stage === "play") nodes.push(this.timeNode(this.time));
-    nodes.push(...this.restNodes(`${SPR}totem/atoXkai_totem.png`, this.rest, 600, 440, 601, 151, 605, 90));
+    nodes.push(...this.restNodes(`${SPR}totem/atoXkai_totem.webp`, this.rest, 600, 440, 601, 151, 605, 90));
     return nodes;
   }
 }

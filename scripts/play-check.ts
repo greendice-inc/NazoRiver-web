@@ -3,39 +3,42 @@ import { Game, SECRET_UP_STROKES } from "../src/game";
 
 const game = new Game();
 game.begin();
-for (let i = 0; i < 30 * 120 && game.view().phase !== "question"; i++) {
-  const phase = game.view().phase;
-  if (phase === "cruise" || phase === "branch") {
-    for (let n = 0; n < 5; n++) game.pressRight();
-  }
+for (let i = 0; i < 30 * 120 && !game.view().quiz; i++) {
+  if (game.view().phase === "cruise") game.lifePoint = 5;
   game.step();
 }
 
 const before = game.view();
-if (before.phase !== "question") {
-  console.error("question did not start", before.phase);
+if (!before.quiz || before.phase !== "cruise") {
+  console.error("enemy quiz did not start", before.phase);
   process.exit(1);
 }
-const file = before.questionSrc.match(/(\d+)\.png$/)?.[1];
+const file = before.quiz.src.match(/(\d+)\.webp$/)?.[1];
 const question = questions.find((item) => item.file === file);
 if (!question) {
-  console.error("missing question", before.questionSrc);
+  console.error("missing question", before.quiz.src);
+  process.exit(1);
+}
+const heldZ = game.cameraZ;
+for (let i = 0; i < 30; i++) game.step();
+if (game.cameraZ !== heldZ || game.drift <= 0) {
+  console.error("quiz should hold the course while the boat keeps rowing", game.cameraZ, heldZ, game.drift);
   process.exit(1);
 }
 
+game.lifePoint = 4;
 game.submitAnswer("ちがうよ");
-if (game.view().phase !== "question") {
-  console.error("wrong answer advanced the phase");
+if (!game.view().quiz || game.lifePoint !== 4) {
+  console.error("wrong answer ended the quiz or cost a heart", game.lifePoint);
   process.exit(1);
 }
 game.submitAnswer(question.answers[0]);
-for (let i = 0; i < 40; i++) game.step();
 const after = game.view();
-if (after.phase !== "question" && after.phase !== "qend" && after.phase !== "black" && after.phase !== "cruise") {
-  console.error("correct answer did not advance", after.phase);
+if (after.quiz || after.hearts !== 5) {
+  console.error("correct answer did not end the quiz with +1 heart", after.hearts);
   process.exit(1);
 }
-console.log(JSON.stringify({ file, before: before.phase, after: after.phase, life: after.life }));
+console.log(JSON.stringify({ file, hearts: after.hearts }));
 
 const retry = new Game();
 retry.begin();
@@ -45,7 +48,8 @@ if (retry.view().phase !== "cruise") {
   process.exit(1);
 }
 const saved = retry.cameraZ;
-retry.life = 1;
+retry.lifePoint = 1;
+retry.quiz = { question: questions[0], enemyId: -1, time: 0 };
 retry.step();
 if (retry.view().phase !== "over" || !retry.view().canRetry) {
   console.error("death did not offer retry", retry.view().phase, retry.view().canRetry);
@@ -63,7 +67,7 @@ function fail(message: string, ...rest: unknown[]): never {
 }
 
 function answerCurrent(game: Game): void {
-  const id = game.view().questionSrc.match(/(\d+)\.png$/)?.[1];
+  const id = game.view().quiz?.src.match(/(\d+)\.webp$/)?.[1];
   const found = questions.find((item) => item.file === id);
   if (found) game.submitAnswer(found.answers[0]);
 }
@@ -76,8 +80,10 @@ function drive(game: Game, route: string, seconds: number): void {
     const view = game.view();
     if (view.phase === "result" || view.phase === "over") return;
     if (view.waitTap) game.advance();
+    // The driver never dodges; keep it alive so the route checks still reach the bosses.
+    if (view.phase === "cruise") game.lifePoint = 5;
     if (view.phase === "cruise" && i % 10 === 0) game.rowBoth();
-    if (view.phase === "question") answerCurrent(game);
+    if (view.quiz) answerCurrent(game);
     if (view.phase === "branch" && view.steering) {
       const dir = route[branch] ?? "L";
       if (dir === "L") game.pressLeft();
@@ -124,7 +130,7 @@ for (let i = 0; i < 30 * 600 && lose.view().phase !== "result"; i++) {
   if (lose.view().waitTap) lose.advance();
   lose.step();
 }
-if (lose.view().ending?.image !== "/u/Resources/ui/failed_octopus.png") fail("octopus timeout did not fail", lose.view().phase, lose.view().ending?.image);
+if (!lose.view().ending?.image?.includes("failed_octopus.webp")) fail("octopus timeout did not fail", lose.view().phase, lose.view().ending?.image);
 if (lose.view().record?.trophies.some((t) => t.name === "無傷")) fail("無傷 given on failure");
 console.log(JSON.stringify({ lose: lose.view().ending?.image, trophies: lose.view().record?.trophies.map((t) => t.name) }));
 
@@ -169,7 +175,8 @@ for (let i = 0; i < 30 * 1800; i++) {
   if (view.waitTap) fromSecret.advance();
   if (view.phase === "cruise") fromSecret.rowBoth();
   if (view.phase === "branch") fromSecret.pressRight();
-  if (view.phase === "question") answerCurrent(fromSecret);
+  if (view.phase === "cruise") fromSecret.lifePoint = 5;
+  if (view.quiz) answerCurrent(fromSecret);
   if (view.phase === "mode" && i % 15 === 0) fromSecret.debugSolve();
   if (name === "CruiseLast" && view.phase === "mode" && i % 3 === 0) fromSecret.rowBoth();
   fromSecret.step();
@@ -177,4 +184,4 @@ for (let i = 0; i < 30 * 1800; i++) {
 const last = fromSecret.view();
 console.log(JSON.stringify({ secretRoute: seen, phase: last.phase, image: last.ending?.image, trophies: last.record?.trophies.map((t) => t.name), password: last.record?.password }));
 if (seen[0] !== "CruiseEx" || seen[1] !== "Totem" || seen[seen.length - 2] !== "Statue" || seen[seen.length - 1] !== "CruiseLast") fail("secret route order wrong", seen);
-if (last.ending?.image !== "/u/Resources/ui/clear_all.png" || last.record?.password !== "secret") fail("secret route did not end with 大いなる秘密");
+if (!last.ending?.image?.includes("clear_all.webp") || last.record?.password !== "secret") fail("secret route did not end with 大いなる秘密");

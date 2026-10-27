@@ -266,24 +266,24 @@ export class Crocodile extends Boss {
     const nodes: SceneNode[] = [];
     const live = this.shown && (this.stage === "play" || this.stage === "fail" || this.stage === "end");
     if (this.inThroat) {
-      nodes.push(img("nodo", `${SPR}wani/ワニ_分割素材_喉.png`, 0, -196.92, 1920, 1080));
+      nodes.push(img("nodo", `${SPR}wani/ワニ_分割素材_喉.webp`, 0, -196.92, 1920, 1080));
     } else {
-      nodes.push(img("wani-up", `${SPR}wani/ワニ_分割素材_上顎.png`, 0, 165, 2112, 385));
-      nodes.push(img("wani-down", `${SPR}wani/ワニ_分割素材_下顎.png`, 0, -400, 2112, 385));
+      nodes.push(img("wani-up", `${SPR}wani/ワニ_分割素材_上顎.webp`, 0, 165, 2112, 385));
+      nodes.push(img("wani-down", `${SPR}wani/ワニ_分割素材_下顎.webp`, 0, -400, 2112, 385));
       const offset = 800 * (4 - this.pos);
       for (let n = 1; n <= this.lanes; n++) {
         const fang = this.fangs[n - 1];
         if (live && fang && !fang.q) continue;
         const x = 800 * (n - 4) + offset;
         if (x < -1500 || x > 1500) continue;
-        nodes.push(img(`fang${n}`, `${SPR}wani/ワニ_分割素材_下歯.png`, x, -350, 400, 500, { tap: n }));
-        nodes.push(img(`fang${n}-back`, `${SPR}ui/nazo_back_normal.png`, x, 0, 720, 560, { tap: n }));
+        nodes.push(img(`fang${n}`, `${SPR}wani/ワニ_分割素材_下歯.webp`, x, -350, 400, 500, { tap: n }));
+        nodes.push(img(`fang${n}-back`, `${SPR}ui/nazo_back_normal.webp`, x, 0, 720, 560, { tap: n }));
         if (live && fang?.q) nodes.push(img(`fang${n}-image`, qimg(fang.q.file), x, 0, 640, 480, { tap: n }));
-        if (live && fang?.result) nodes.push(img(`fang${n}-result`, `${RES}wani/mushiba_${fang.result}.png`, x, 150, 600, 400, { blink: true }));
+        if (live && fang?.result) nodes.push(img(`fang${n}-result`, `${RES}wani/mushiba_${fang.result}.webp`, x, 150, 600, 400, { blink: true }));
       }
     }
     if (live && this.stage === "play") nodes.push(this.timeNode(this.time));
-    nodes.push(...this.restNodes(`${SPR}wani/atoXhon_crocodile.png`, this.rest, 600, 440, 601, 151, 650, 90));
+    nodes.push(...this.restNodes(`${SPR}wani/atoXhon_crocodile.webp`, this.rest, 600, 440, 601, 151, 650, 90));
     return nodes;
   }
 }

@@ -1,3 +1,4 @@
+import { asset } from "./paths";
 const OUT_QUAD = "cubic-bezier(0.5, 1, 0.89, 1)";
 
 // GameStartScript lights Visual1..4 (upper-left, lower-left, upper-right, lower-right) as each rower gets ready.
@@ -51,10 +52,10 @@ export class TitleScreen {
 
     for (const seat of seats) {
       const off = el("img", "abs", this.art);
-      off.src = `/art/off_${seat.corner}.png`;
+      off.src = asset(`art/off_${seat.corner}.webp`);
       place(off, seat.cx, seat.cy, 962, 542);
       const on = el("img", "abs title-lit", this.art);
-      on.src = `/art/on_${seat.corner}.png`;
+      on.src = asset(`art/on_${seat.corner}.webp`);
       place(on, seat.cx, seat.cy, 962, 542);
       this.lit.push(on);
       const flash = el("div", "abs title-flash", this.art);

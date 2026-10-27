@@ -9,6 +9,14 @@ import { World } from "./world";
 const viewport = document.querySelector<HTMLElement>("#viewport")!;
 const stage = document.querySelector<HTMLElement>("#stage")!;
 const canvas = document.querySelector<HTMLCanvasElement>("#world")!;
+const rotateTip = document.querySelector<HTMLElement>("#rotate");
+
+function hideRotateTip(): void {
+  if (!rotateTip) return;
+  rotateTip.style.display = "none";
+}
+window.addEventListener("pointerdown", hideRotateTip, { once: true });
+window.setTimeout(hideRotateTip, 5000);
 
 const debugOn = debugEnabled();
 const game = new Game();
@@ -73,7 +81,8 @@ new RowInput({
     };
   },
   enabled: () => current.steering || current.strokes,
-  row: (zone) => {
+  row: (zone, x, y) => {
+    game.strokeAt(x, y);
     if (zone === "left") game.noteTouch("r");
     else if (zone === "right") game.noteTouch("l");
     else game.rowBoth();

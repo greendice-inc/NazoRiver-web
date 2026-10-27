@@ -1,3 +1,5 @@
+import { asset } from "./paths";
+
 // Unity MessageCanvas nodes: x/y are canvas units with the origin at the screen center and y pointing up.
 export type SceneNode = {
   key: string;
@@ -25,9 +27,9 @@ export type SceneNode = {
   blink?: boolean;
 };
 
-export const U = "/u/";
-export const SPR = "/u/Sprites/";
-export const RES = "/u/Resources/";
+export const U = asset("u/");
+export const SPR = asset("u/Sprites/");
+export const RES = asset("u/Resources/");
 
 export function img(key: string, src: string, x: number, y: number, w: number, h: number, extra: Partial<SceneNode> = {}): SceneNode {
   return { key, src, x, y, w, h, ...extra };
@@ -107,7 +109,7 @@ export function countdownNodes(t: number): SceneNode[] {
   ];
   steps.forEach(([key, file, w, h], i) => {
     const pop = popup(t - i * 0.75, 0.5);
-    if (pop) nodes.push(img(`cd-${key}`, `${SPR}ui/${file}.png`, 0, 0, w, h, { over: true, alpha: pop.alpha, scale: pop.scale }));
+    if (pop) nodes.push(img(`cd-${key}`, `${SPR}ui/${file}.webp`, 0, 0, w, h, { over: true, alpha: pop.alpha, scale: pop.scale }));
   });
   return nodes;
 }

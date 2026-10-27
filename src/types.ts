@@ -8,6 +8,8 @@ export type Sprite = {
   kind: ObstacleKind;
   x: number;
   z: number;
+  // Hover height for enemies (world default when omitted).
+  y?: number;
 };
 
 // Extra world objects owned by stage 3 / the secret river: letters, shiritori boards, hard rocks, gems.
@@ -32,9 +34,6 @@ export type PhaseName =
   | "branch"
   | "turn"
   | "black"
-  | "question"
-  | "mark"
-  | "qend"
   | "mode"
   | "result"
   | "over";
@@ -59,12 +58,11 @@ export type GameEvent =
   | { type: "se"; name: string }
   | { type: "bgm"; name: string | null }
   | { type: "launch" }
-  | { type: "countdown"; kind: "cruise" | "question" }
+  | { type: "countdown" }
   | { type: "nazoGet"; x: number; z: number }
   | { type: "accelerate" }
   | { type: "wind"; dir: -1 | 1; duration: number }
   | { type: "damage" }
-  | { type: "questionNumber"; n: number }
   | { type: "answer"; ok: boolean }
   | { type: "miss" };
 
@@ -75,12 +73,6 @@ export type Ending = {
   text: string;
 };
 
-// LifeGauge → LifePoint hearts. `since` counts seconds from the conversion start (Infinity = settled).
-export type Hearts = {
-  count: number;
-  since: number;
-};
-
 export type TotemFaces = {
   ex: boolean;
   angles: number[];
@@ -89,10 +81,6 @@ export type TotemFaces = {
 export type View = {
   phase: PhaseName;
   level: number;
-  life: number;
-  maxLife: number;
-  collected: number;
-  counter: boolean;
   gauge: number;
   gaugeFull: boolean;
   arrows: boolean;
@@ -108,16 +96,13 @@ export type View = {
   sprites: Sprite[];
   props: Prop[];
   gate: Gate | null;
-  intro: { image: string; count: number | null } | null;
+  intro: { image: string } | null;
   caution: boolean;
   routeMap: string | null;
-  questionSrc: string;
-  questionTime: number;
-  questionMax: number;
-  questionElapsed: number;
+  // Enemy question asked during the cruise.
+  quiz: { src: string; time: number; max: number } | null;
   answering: boolean;
   answerEcho: string;
-  qend: boolean;
   black: number;
   white: number;
   titleScreen: boolean;
@@ -127,7 +112,7 @@ export type View = {
   canRetry: boolean;
   secret: boolean;
   scene: SceneNode[];
-  hearts: Hearts | null;
+  hearts: number;
   waitTap: boolean;
   boat: { roll: number } | null;
   totem: TotemFaces | null;

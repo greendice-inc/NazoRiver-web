@@ -1,3 +1,4 @@
+import { asset } from "./paths";
 export type RunStats = {
   routeNum: number;
   speedUps: number;
@@ -194,5 +195,5 @@ export function buildRecord(stats: RunStats, fileName: string): RunRecord {
   for (const name of earned) stored.add(name);
   saveEarned(stored);
 
-  return { trophies: list.slice(0, 8), earned, fresh, password, route: `/art/route/route_${stats.routeNum}.png` };
+  return { trophies: list.slice(0, 8), earned, fresh, password, route: asset(`art/route/route_${stats.routeNum}.webp`) };
 }

@@ -15,7 +15,6 @@ const gatesByLevel: Record<number, [string, string]> = {
 };
 
 const SPEED = 0.08;
-const DAMAGE = 600;
 const QUESTION_TIME = 20;
 const ROTATE_TIME = 3;
 
@@ -408,8 +407,8 @@ export class Stage3 extends Mode {
     this.gate = {
       x: 0,
       z: (p + 3) * LINE,
-      left: `${RES}gate/treegate_${left}.png`,
-      right: `${RES}gate/treegate_${right}.png`,
+      left: `${RES}gate/treegate_${left}.webp`,
+      right: `${RES}gate/treegate_${right}.webp`,
       fadeIn: true,
     };
     this.gateTime = 0;
@@ -424,7 +423,10 @@ export class Stage3 extends Mode {
     this.se("bashi");
     this.host.run.noDamage = false;
     this.host.run.allCorrect = false;
-    this.host.setLife(Math.max(0, this.host.life() - DAMAGE));
+    if (!this.host.setLifePoint(this.host.lifePoint() - 1)) {
+      this.host.gameOver();
+      return;
+    }
     this.damage = 0;
     this.steer.gauge = 0;
     if (this.mode === 4) {
@@ -465,7 +467,7 @@ export class Stage3 extends Mode {
     }
     for (const board of this.boards) {
       if (board.rock) list.push({ id: board.id, kind: "rock", x: laneX(board.lane), y: 1, z: board.z });
-      else list.push({ id: board.id, kind: "image", x: laneX(board.lane), y: 1, z: board.z, src: `${RES}shiritori/1-${board.line}-${board.lane}.png`, scale: 0.7 });
+      else list.push({ id: board.id, kind: "image", x: laneX(board.lane), y: 1, z: board.z, src: `${RES}shiritori/1-${board.line}-${board.lane}.webp`, scale: 0.7 });
     }
     return list;
   }
@@ -473,7 +475,7 @@ export class Stage3 extends Mode {
   private scene(): SceneNode[] {
     const nodes: SceneNode[] = [];
     if (this.phase === "intro") {
-      nodes.push(img("intro", `${RES}inst/${introByLevel[this.level]}.png`, 0, -100, 960.8, 784.8, { over: true }));
+      nodes.push(img("intro", `${RES}inst/${introByLevel[this.level]}.webp`, 0, -100, 960.8, 784.8, { over: true }));
       return nodes;
     }
     if (this.phase === "countdown") {
@@ -486,8 +488,8 @@ export class Stage3 extends Mode {
     const id = this.queue[0];
     if (this.mode === 1 && this.panelVisible) {
       if (playing && id) {
-        nodes.push(img("m1-q", `${RES}question_dochu/Qtext_A${id}.png`, 550, 435, 800, 201));
-        nodes.push(img("m1-x", `${SPR}ui/Xmonseikai.png`, 50, 435, 300.25, 100.25));
+        nodes.push(img("m1-q", `${RES}question_dochu/Qtext_A${id}.webp`, 550, 435, 800, 201));
+        nodes.push(img("m1-x", `${SPR}ui/Xmonseikai.webp`, 50, 435, 300.25, 100.25));
       }
       nodes.push(rect("m1-panel", 0, -450, 1200, 150, "rgba(0,0,0,0.25)"));
       nodes.push(txt("m1-text", this.current, 0, -450, 1200, 150, 100));
@@ -509,19 +511,19 @@ export class Stage3 extends Mode {
         spots.forEach(([x, y, guardX], i) => {
           nodes.push(rect(`m2-p${i}`, x, y, 650, 200, "rgba(0,0,0,0.25)", { alpha, tap: i + 1 }));
           nodes.push(txt(`m2-t${i}`, game?.labels[i] ?? "", x, y, 650, 200, 150, { alpha }));
-          if (this.guards.includes(i + 1)) nodes.push(img(`m2-g${i}`, `${RES}wani/mushiba_safe.png`, x + guardX, y, 300, 200, { alpha }));
+          if (this.guards.includes(i + 1)) nodes.push(img(`m2-g${i}`, `${RES}wani/mushiba_safe.webp`, x + guardX, y, 300, 200, { alpha }));
         });
       }
       if (playing && id && !this.mode2Move && this.finishTime < 0) {
         nodes.push(txt("m2-time", String(Math.ceil(Math.max(this.qTime, 0))), 0, 450, 250, 100, 100, { font: "wanpaku" }));
-        nodes.push(img("m2-q", `${RES}question_dochu/Qtext_B${id}.png`, 550, 435, 800, 201));
+        nodes.push(img("m2-q", `${RES}question_dochu/Qtext_B${id}.webp`, 550, 435, 800, 201));
       }
     }
     if (this.mode === 3 && playing && id) {
       const game = silhouetteGames[id - 1];
       nodes.push(txt("m3-time", String(Math.ceil(Math.max(this.qTime, 0))), 0, 450, 250, 100, 100, { font: "wanpaku" }));
-      nodes.push(img("m3-q", `${RES}question_dochu/Qtext_C${id}.png`, 550, 435, 800, 201));
-      nodes.push(img("m3-back", `${SPR}ui/genei_waku.png`, 0, -100, 901, 901));
+      nodes.push(img("m3-q", `${RES}question_dochu/Qtext_C${id}.webp`, 550, 435, 800, 201));
+      nodes.push(img("m3-back", `${SPR}ui/genei_waku.webp`, 0, -100, 901, 901));
       const spots: [number, number][] = [
         [-200, 100],
         [-200, -300],
@@ -529,7 +531,7 @@ export class Stage3 extends Mode {
         [200, -300],
       ];
       spots.forEach(([x, y], i) => {
-        nodes.push(img(`m3-p${i}`, `${RES}silhouette/${game.file}-${this.states[i]}-${silhouetteDir[i]}.png`, x, y, 400, 400, { tap: i + 1 }));
+        nodes.push(img(`m3-p${i}`, `${RES}silhouette/${game.file}-${this.states[i]}-${silhouetteDir[i]}.webp`, x, y, 400, 400, { tap: i + 1 }));
       });
     }
     return nodes;

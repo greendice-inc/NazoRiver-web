@@ -4,6 +4,7 @@ import type { RowZone } from "./rowing";
 import { SceneLayer } from "./sceneLayer";
 import { TitleScreen } from "./title";
 import type { GameEvent, View } from "./types";
+import { asset } from "./paths";
 
 const OUT_QUAD = "cubic-bezier(0.5, 1, 0.89, 1)";
 
@@ -20,10 +21,7 @@ type Handlers = {
   jump?: (level: number) => void;
 };
 
-// GameControllerScript.ConvertLifeGaugeAnimation: small hearts inside the bar, then they grow into LifePoint.
-const smallHeartX = [-242, -121, 0, 121, 242];
-const bigHeartX = [-400, -250, -100, 50, 200];
-const CONVERT_END = 6.5;
+const heartX = [-400, -250, -100, 50, 200];
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, parent: HTMLElement): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -41,7 +39,7 @@ function place(node: HTMLElement, cx: number, cy: number, w: number, h: number):
 
 function image(src: string, className: string, parent: HTMLElement, cx: number, cy: number, w: number, h: number): HTMLImageElement {
   const node = el("img", `abs ${className}`, parent);
-  node.src = src;
+  node.src = asset(src);
   node.draggable = false;
   place(node, cx, cy, w, h);
   return node;
@@ -49,18 +47,6 @@ function image(src: string, className: string, parent: HTMLElement, cx: number, 
 
 function show(node: HTMLElement, visible: boolean): void {
   node.style.display = visible ? "" : "none";
-}
-
-function outQuad(t: number): number {
-  return 1 - (1 - t) * (1 - t);
-}
-
-function lifeTint(rate: number): string {
-  if (rate > 4 / 5) return "rgb(255,255,255)";
-  if (rate > 3 / 5) return "rgb(0,255,255)";
-  if (rate > 2 / 5) return "rgb(0,255,0)";
-  if (rate > 1 / 5) return "rgb(255,255,0)";
-  return "rgb(255,0,0)";
 }
 
 function timerTint(time: number, max: number): string {
@@ -74,8 +60,6 @@ export class Hud {
   readonly root: HTMLElement;
   private roll: HTMLElement;
   private header: HTMLElement;
-  private lifeFill: HTMLElement;
-  private nazoCount: HTMLElement;
   private muteButton: HTMLButtonElement;
   private arrowLeft: HTMLElement;
   private arrowRight: HTMLElement;
@@ -88,7 +72,6 @@ export class Hud {
   private caution: HTMLImageElement;
   private routeMap: HTMLImageElement;
   private intro: HTMLImageElement;
-  private introCount: HTMLElement;
   private question: HTMLElement;
   private questionImage: HTMLImageElement;
   private timer: HTMLElement;
@@ -98,7 +81,6 @@ export class Hud {
   private input: HTMLInputElement;
   private submitButton: HTMLButtonElement;
   private popups = new Map<string, HTMLImageElement>();
-  private qNumber: HTMLImageElement;
   private title: TitleScreen;
   private lastPhase = "";
   private white: HTMLElement;
@@ -123,9 +105,6 @@ export class Hud {
   private sceneUnder: SceneLayer;
   private sceneOver: SceneLayer;
   private tapCatch: HTMLElement;
-  private counter: HTMLElement;
-  private lifeParts: HTMLElement[];
-  private lines: HTMLElement;
   private hearts: HTMLImageElement[] = [];
   private resultImage: HTMLImageElement;
   private resultHint: HTMLElement;
@@ -139,29 +118,13 @@ export class Hud {
     this.roll = el("div", "hud-roll", this.root);
     const r = this.roll;
 
-    this.windLeft = image("/art/kaze_left.png", "wind", r, 960, 540, 1920, 1080);
-    this.windRight = image("/art/kaze_right.png", "wind", r, 960, 540, 1920, 1080);
-    this.shuchu = [1, 2, 3].map((n) => image(`/art/shuchusen_${n}.png`, "shuchu", r, 960, 540, 1920, 1080));
+    this.windLeft = image("/art/kaze_left.webp", "wind", r, 960, 540, 1920, 1080);
+    this.windRight = image("/art/kaze_right.webp", "wind", r, 960, 540, 1920, 1080);
+    this.shuchu = [1, 2, 3].map((n) => image(`/art/shuchusen_${n}.webp`, "shuchu", r, 960, 540, 1920, 1080));
 
     this.header = el("div", "abs header", r);
     place(this.header, 960, 50, 2200, 300);
-    const lifeHeart = image("/art/heart_red.png", "", this.header, 110 + 140, 100 + 100, 150, 150);
-    const lifeBack = image("/art/bar-back_black.png", "", this.header, 510 + 140, 100 + 100, 640.8, 120);
-    this.lifeFill = el("div", "abs life-fill", this.header);
-    place(this.lifeFill, 510 + 140, 100 + 100, 605.6, 80.8);
-    this.lines = el("div", "abs", this.header);
-    place(this.lines, 510 + 140, 100 + 100, 640.8, 120);
-    for (const x of [-181.5, -60.5, 60.5, 181.5]) {
-      const line = el("div", "abs", this.lines);
-      place(line, 320.4 + x, 60, 4, 80);
-      line.style.background = "rgb(64,64,64)";
-    }
-    this.lifeParts = [lifeHeart, lifeBack, this.lifeFill];
-    for (let i = 0; i < 5; i++) this.hearts.push(image("/u/Resources/ui/heart_red.png", "heart", this.header, 0, 0, 100, 100));
-    this.counter = el("div", "abs nazo-counter", this.header);
-    place(this.counter, 1560 + 140, 100 + 100, 360, 120);
-    el("div", "nazo-icon", this.counter);
-    this.nazoCount = el("div", "nazo-count", this.counter);
+    for (const x of heartX) this.hearts.push(image("/u/Resources/ui/heart_red.webp", "heart", this.header, 510 + x + 140, 100 + 100, 160, 160));
     this.muteButton = el("button", "abs mute", this.header);
     // Web-only control: kept in the corner clear of Unity's rest badges at (1260..1860, 25..175).
     place(this.muteButton, 1888 + 140, 36 + 100, 56, 56);
@@ -199,24 +162,22 @@ export class Hud {
 
     this.arrowLeft = el("div", "abs arrow", r);
     place(this.arrowLeft, 760, 940, 300, 300);
-    image("/art/arrow_back_left.png", "arrow-back", this.arrowLeft, 150, 150, 300, 300);
-    this.arrowLeftFill = image("/art/arrow_left.png", "arrow-fill", this.arrowLeft, 150, 150, 300, 300);
+    image("/art/arrow_back_left.webp", "arrow-back", this.arrowLeft, 150, 150, 300, 300);
+    this.arrowLeftFill = image("/art/arrow_left.webp", "arrow-fill", this.arrowLeft, 150, 150, 300, 300);
     this.arrowRight = el("div", "abs arrow", r);
     place(this.arrowRight, 1160, 940, 300, 300);
-    image("/art/arrow_back_right.png", "arrow-back", this.arrowRight, 150, 150, 300, 300);
-    this.arrowRightFill = image("/art/arrow_right.png", "arrow-fill", this.arrowRight, 150, 150, 300, 300);
+    image("/art/arrow_back_right.webp", "arrow-back", this.arrowRight, 150, 150, 300, 300);
+    this.arrowRightFill = image("/art/arrow_right.webp", "arrow-fill", this.arrowRight, 150, 150, 300, 300);
 
-    this.nazoGet = image("/art/nazoget.png", "", r, 960, 540, 801, 201);
-    this.caution = image("/art/wakaremichida.png", "", r, 960, 540, 1201, 500);
+    this.nazoGet = image("/art/nazoget.webp", "", r, 960, 540, 801, 201);
+    this.caution = image("/art/wakaremichida.webp", "", r, 960, 540, 1201, 500);
     this.routeMap = image("", "", r, 960, 540, 800, 800);
 
     this.intro = image("", "intro", r, 960, 640, 960.8, 784.8);
-    this.introCount = el("div", "abs intro-count", r);
-    place(this.introCount, 1122, 744, 200, 147);
 
     this.question = el("div", "abs question", r);
     place(this.question, 960, 540, 1920, 1080);
-    image("/art/nazo_back_normal.png", "", this.question, 960, 590, 900, 700);
+    image("/art/nazo_back_normal.webp", "", this.question, 960, 590, 900, 700);
     this.questionImage = image("", "question-image", this.question, 960, 590, 800, 600);
     this.timer = el("div", "abs timer", this.question);
     place(this.timer, 960, 240, 125, 125);
@@ -252,18 +213,17 @@ export class Hud {
     });
 
     const popupDefs: [string, string, number, number][] = [
-      ["3", "/art/popup_3.png", 1000, 1000],
-      ["2", "/art/popup_2.png", 1000, 1000],
-      ["1", "/art/popup_1.png", 1000, 1000],
-      ["start", "/art/popup_start.png", 1921, 1000],
-      ["correct", "/art/seikai.png", 1201, 1201],
-      ["incorrect", "/art/zannen.png", 1201, 1201],
+      ["3", "/art/popup_3.webp", 1000, 1000],
+      ["2", "/art/popup_2.webp", 1000, 1000],
+      ["1", "/art/popup_1.webp", 1000, 1000],
+      ["start", "/art/popup_start.webp", 1921, 1000],
+      ["correct", "/art/seikai.webp", 1201, 1201],
+      ["incorrect", "/art/zannen.webp", 1201, 1201],
     ];
     for (const [key, src, w, h] of popupDefs) {
       const node = image(src, "popup", r, 960, 540, w, h);
       this.popups.set(key, node);
     }
-    this.qNumber = image("/art/q1.png", "popup", r, 960, 540, 1201, 601);
 
     this.tapCatch = el("div", "abs tap-catch", r);
     place(this.tapCatch, 960, 540, 1920, 1080);
@@ -282,7 +242,7 @@ export class Hud {
       trophies: () => this.book.open(true),
     });
 
-    this.shukko = image("/art/popup_shukkou.png", "popup", this.root, 960, 540, 1921, 1000);
+    this.shukko = image("/art/popup_shukkou.webp", "popup", this.root, 960, 540, 1921, 1000);
     this.white = el("div", "abs fill white", this.root);
     this.black = el("div", "abs fill black", this.root);
 
@@ -323,7 +283,7 @@ export class Hud {
       });
     }
 
-    for (const node of [...this.shuchu, this.windLeft, this.windRight, this.nazoGet, this.qNumber, this.shukko, this.endingAlt, this.tapCatch]) show(node, false);
+    for (const node of [...this.shuchu, this.windLeft, this.windRight, this.nazoGet, this.shukko, this.endingAlt, this.tapCatch]) show(node, false);
     for (const node of this.popups.values()) show(node, false);
   }
 
@@ -331,10 +291,6 @@ export class Hud {
     switch (event.type) {
       case "countdown":
         ["3", "2", "1", "start"].forEach((key, i) => this.pop(this.popups.get(key)!, i * 1000, 500));
-        break;
-      case "questionNumber":
-        this.qNumber.src = `/art/q${Math.min(event.n, 10)}.png`;
-        this.pop(this.qNumber, 0, 500);
         break;
       case "answer":
         this.pop(this.popups.get(event.ok ? "correct" : "incorrect")!, 0, 500);
@@ -386,12 +342,10 @@ export class Hud {
     show(this.black, view.black > 0);
 
     show(this.header, !view.titleScreen);
-    const rate = Math.max(0, view.life / view.maxLife);
-    this.lifeFill.style.clipPath = `inset(0 ${(1 - rate) * 100}% 0 0)`;
-    this.lifeFill.style.backgroundColor = lifeTint(rate);
-    this.nazoCount.textContent = `× ${view.collected}`;
-    show(this.counter, view.counter);
-    this.updateHearts(view);
+    this.hearts.forEach((heart, i) => {
+      const src = asset(i < view.hearts ? "u/Resources/ui/heart_red.webp" : "u/Resources/ui/heart_black.webp");
+      if (heart.src !== src) heart.src = src;
+    });
 
     this.sceneUnder.update(view.scene.filter((node) => !node.over));
     this.sceneOver.update(view.scene.filter((node) => node.over));
@@ -406,10 +360,10 @@ export class Hud {
     const right = view.gauge > 0 ? Math.min(view.gauge, 1) : 0;
     this.arrowLeftFill.style.clipPath = `inset(0 0 0 ${(1 - left) * 100}%)`;
     this.arrowRightFill.style.clipPath = `inset(0 ${(1 - right) * 100}% 0 0)`;
-    const leftSrc = left >= 1 || (view.gaugeFull && view.gauge < 0) ? "/art/arrow_left_yellow.png" : "/art/arrow_left.png";
-    const rightSrc = right >= 1 || (view.gaugeFull && view.gauge > 0) ? "/art/arrow_right_yellow.png" : "/art/arrow_right.png";
-    if (!this.arrowLeftFill.src.endsWith(leftSrc)) this.arrowLeftFill.src = leftSrc;
-    if (!this.arrowRightFill.src.endsWith(rightSrc)) this.arrowRightFill.src = rightSrc;
+    const leftSrc = asset(left >= 1 || (view.gaugeFull && view.gauge < 0) ? "art/arrow_left_yellow.webp" : "art/arrow_left.webp");
+    const rightSrc = asset(right >= 1 || (view.gaugeFull && view.gauge > 0) ? "art/arrow_right_yellow.webp" : "art/arrow_right.webp");
+    if (this.arrowLeftFill.src !== leftSrc) this.arrowLeftFill.src = leftSrc;
+    if (this.arrowRightFill.src !== rightSrc) this.arrowRightFill.src = rightSrc;
     this.updateRowGuide(view, dt);
 
     if (this.windTimer > 0) {
@@ -428,27 +382,19 @@ export class Hud {
     }
     show(this.routeMap, !!view.routeMap);
 
-    if (view.intro) {
-      if (!this.intro.src.endsWith(view.intro.image)) this.intro.src = view.intro.image;
-      const nazo = view.intro.count !== null;
-      place(this.intro, 960, 640, 960.8, nazo ? 640.8 : 784.8);
-      this.introCount.textContent = nazo ? String(view.intro.count) : "";
-      show(this.introCount, nazo);
-    } else {
-      show(this.introCount, false);
-    }
+    if (view.intro && !this.intro.src.endsWith(view.intro.image)) this.intro.src = view.intro.image;
     show(this.intro, !!view.intro);
 
-    const inQuestion = phase === "question" || phase === "mark";
-    show(this.question, inQuestion);
+    const quiz = view.quiz;
+    show(this.question, !!quiz);
     show(this.panel, view.answering);
-    if (inQuestion) {
-      if (!this.questionImage.src.endsWith(view.questionSrc)) this.questionImage.src = view.questionSrc;
-      const scale = 0.8 + 0.5 * outQuad(Math.min(view.questionElapsed / view.questionMax, 1));
-      this.question.style.transform = `scale(${scale})`;
-      const fraction = Math.max(0, view.questionTime / view.questionMax);
-      this.timerFill.style.background = `conic-gradient(transparent 0deg ${(1 - fraction) * 360}deg, ${timerTint(view.questionTime, view.questionMax)} 0deg)`;
-      this.timerText.textContent = String(Math.max(Math.ceil(view.questionTime), 0));
+    if (quiz) {
+      if (!this.questionImage.src.endsWith(quiz.src)) this.questionImage.src = quiz.src;
+      // Enemy above, card below it, with a clear gap above the answer panel (~y 915).
+      this.question.style.transform = "translateY(40px) scale(0.58)";
+      const fraction = Math.max(0, quiz.time / quiz.max);
+      this.timerFill.style.background = `conic-gradient(transparent 0deg ${(1 - fraction) * 360}deg, ${timerTint(quiz.time, quiz.max)} 0deg)`;
+      this.timerText.textContent = String(Math.max(Math.ceil(quiz.time), 0));
     }
     if (view.answering && this.lastFocus !== view.focusToken) {
       this.lastFocus = view.focusToken;
@@ -474,50 +420,6 @@ export class Hud {
       this.endingButton.textContent = view.canRetry ? "ここからやり直す" : "探検記録を見る";
       show(this.endingAlt, view.canRetry);
     }
-  }
-
-  private updateHearts(view: View): void {
-    const hearts = view.hearts;
-    const since = hearts ? hearts.since : -1;
-    const converting = since >= 0 && since < CONVERT_END;
-    const settled = since >= CONVERT_END;
-    const barAlpha = !hearts ? 1 : converting ? 1 - Math.min(1, Math.max(0, (since - 6) / 0.5)) : 0;
-    for (const part of this.lifeParts) {
-      part.style.opacity = barAlpha >= 1 ? "" : String(barAlpha);
-      show(part, barAlpha > 0);
-    }
-    const linesAlpha = converting ? Math.min(1, since) * barAlpha : 0;
-    this.lines.style.opacity = String(linesAlpha);
-    show(this.lines, linesAlpha > 0);
-    this.hearts.forEach((heart, i) => {
-      if (!hearts) {
-        show(heart, false);
-        return;
-      }
-      const src = i < hearts.count ? "/u/Resources/ui/heart_red.png" : "/u/Resources/ui/heart_black.png";
-      if (!heart.src.endsWith(src)) heart.src = src;
-      let x = 510 + smallHeartX[i];
-      let size = 100;
-      let scale = 1;
-      if (settled) {
-        x = 510 + bigHeartX[i];
-        size = 160;
-      } else {
-        const start = 1 + i * 0.8;
-        const t = since - start;
-        if (t < 0) scale = 0;
-        else if (t < 0.2) scale = 1.2 * (t / 0.2);
-        else if (t < 0.3) scale = 1.2 - 0.2 * ((t - 0.2) / 0.1);
-        const grow = Math.min(1, Math.max(0, (since - 5.5) / 1));
-        if (grow > 0) {
-          x = 510 + smallHeartX[i] + (bigHeartX[i] - smallHeartX[i]) * grow;
-          scale = 1 + 0.6 * grow;
-        }
-      }
-      place(heart, x + 140, 100 + 100, size, size);
-      heart.style.transform = scale === 1 ? "" : `scale(${scale})`;
-      show(heart, scale > 0);
-    });
   }
 
   titleKey(code: string): boolean {

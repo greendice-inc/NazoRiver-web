@@ -13,6 +13,9 @@ const fonts: Record<NonNullable<SceneNode["font"]>, string> = {
   noto: `"NotoJP", sans-serif`,
 };
 
+// Client pixels a tap may drift before it counts as a stroke.
+const TAP_SLOP = 24;
+
 function outline(color: string, width: number): string {
   const shadows: string[] = [];
   for (let i = 0; i < 16; i++) {
@@ -26,6 +29,7 @@ export class SceneLayer {
   readonly root: HTMLElement;
   private entries = new Map<string, Entry>();
   private order = "";
+  private press: { id: number; index: number; x: number; y: number } | null = null;
 
   constructor(parent: HTMLElement, className: string, private onTap: (index: number) => void) {
     this.root = document.createElement("div");
@@ -35,12 +39,22 @@ export class SceneLayer {
     this.root.style.width = "1920px";
     this.root.style.height = "1080px";
     parent.appendChild(this.root);
+    // Taps fire on release and only when the pointer stayed put, so a row stroke that starts on a
+    // tappable node still reaches RowInput instead of also tapping it.
     this.root.addEventListener("pointerdown", (event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>("[data-tap]");
       if (!target) return;
-      event.stopPropagation();
       event.preventDefault();
-      this.onTap(Number(target.dataset.tap));
+      this.press = { id: event.pointerId, index: Number(target.dataset.tap), x: event.clientX, y: event.clientY };
+    });
+    window.addEventListener("pointerup", (event) => {
+      const press = this.press;
+      if (!press || press.id !== event.pointerId) return;
+      this.press = null;
+      if (Math.hypot(event.clientX - press.x, event.clientY - press.y) <= TAP_SLOP) this.onTap(press.index);
+    });
+    window.addEventListener("pointercancel", (event) => {
+      if (this.press?.id === event.pointerId) this.press = null;
     });
   }
 

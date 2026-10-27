@@ -4,7 +4,6 @@ import type { CameraPose, GameEvent, Gate, Prop, TotemFaces } from "../types";
 
 export const STEP = 1 / 30;
 export const LINE = 10;
-export const MAX_LIFE = 14400;
 
 export function laneX(lane: number): number {
   return -9 + lane * 3;
@@ -42,14 +41,10 @@ export type ModeView = {
 export type Host = {
   run: RunStats;
   emit(event: GameEvent): void;
-  life(): number;
-  setLife(value: number): void;
   lifePoint(): number;
   // Returns false when LifePoint reaches 0 (GameControllerScript.SetLifePoint).
   setLifePoint(value: number): boolean;
-  // ConvertLifeGaugeAnimation (7s): Life → LifePoint hearts.
-  convertHearts(): void;
-  showHearts(): void;
+  gameOver(): void;
   focusAnswer(): void;
   // Cruise2.ChoiceRoute: hand the camera to the shared branch / turn sequence.
   branch(fromX: number, fromZ: number): void;
@@ -69,6 +64,8 @@ export abstract class Mode {
   pressRight(): void {}
   rowBoth(): void {}
   tap(_index: number): void {}
+  // Row stroke start point in stage pixels (1920×1080, y down), sent alongside the zone handlers.
+  strokeAt(_x: number, _y: number): void {}
   advance(): void {}
   answer(_raw: string): "clear" | "keep" {
     return "keep";

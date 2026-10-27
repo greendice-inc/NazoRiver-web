@@ -1,18 +1,18 @@
 @font-face {
   font-family: "Wanpaku";
-  src: url("/fonts/WanpakuRuikaSeikyo-05.TTF") format("truetype");
+  src: url("../fonts/WanpakuRuikaSeikyo-05.TTF") format("truetype");
   font-display: block;
 }
 
 @font-face {
   font-family: "IPAexG";
-  src: url("/fonts/IPAEXG.TTF") format("truetype");
+  src: url("../fonts/IPAEXG.TTF") format("truetype");
   font-display: swap;
 }
 
 @font-face {
   font-family: "NotoJP";
-  src: url("/fonts/NotoSansJP-Medium.otf") format("opentype");
+  src: url("../fonts/NotoSansJP-Medium.otf") format("opentype");
   font-display: swap;
 }
 
@@ -101,11 +101,11 @@ img.abs {
 }
 
 .life-fill {
-  background-image: url("/art/bar_white.png");
+  background-image: url("../art/bar_white.webp");
   background-size: 100% 100%;
   background-blend-mode: multiply;
-  -webkit-mask-image: url("/art/bar_white.png");
-  mask-image: url("/art/bar_white.png");
+  -webkit-mask-image: url("../art/bar_white.webp");
+  mask-image: url("../art/bar_white.webp");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
 }
@@ -325,8 +325,8 @@ img.abs {
 
 .timer-back,
 .timer-fill {
-  -webkit-mask-image: url("/art/BigCircle.png");
-  mask-image: url("/art/BigCircle.png");
+  -webkit-mask-image: url("../art/BigCircle.webp");
+  mask-image: url("../art/BigCircle.webp");
   -webkit-mask-size: 100% 100%;
   mask-size: 100% 100%;
 }
@@ -524,7 +524,7 @@ img.abs {
 
 .title-howto {
   cursor: pointer;
-  background: url("/art/waiting.png") center / 100% 100% no-repeat, #2a1a0c;
+  background: url("../art/waiting.webp") center / 100% 100% no-repeat, #2a1a0c;
 }
 
 .howto-sheet {
@@ -540,7 +540,7 @@ img.abs {
 
 .howto-story {
   border-radius: 18px;
-  background: url("/art/waiting.png") -87px -54px / 1862px 1047px no-repeat;
+  background: url("../art/waiting.webp") -87px -54px / 1862px 1047px no-repeat;
   box-shadow: 0 6px 18px rgba(60, 30, 5, 0.35);
 }
 
@@ -680,7 +680,7 @@ img.abs {
   justify-content: center;
   gap: 22px;
   padding: 60px 90px;
-  background: url("/art/nazo_back_normal.png") center / 100% 100% no-repeat;
+  background: url("../art/nazo_back_normal.webp") center / 100% 100% no-repeat;
   color: #3d220c;
   text-align: center;
 }
@@ -951,8 +951,8 @@ img.abs {
 .debug-panel {
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  padding: 40px 50px 36px;
+  gap: 20px;
+  padding: 28px 36px 24px;
   border: 6px solid #5a3412;
   border-radius: 28px;
   background:
@@ -961,26 +961,34 @@ img.abs {
   box-shadow:
     inset 0 0 60px rgba(120, 72, 20, 0.4),
     0 20px 60px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
 }
 
 .debug-label {
+  flex: 0 0 auto;
   align-self: flex-start;
-  padding: 4px 28px;
+  padding: 4px 24px;
   background: #3d220c;
   color: #f6e8c4;
   font-family: "NotoJP", sans-serif;
   font-weight: 700;
-  font-size: 44px;
+  font-size: 36px;
   letter-spacing: 4px;
 }
 
 .debug-grid {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 
 .debug-row {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: 16px;
@@ -990,13 +998,15 @@ img.abs {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  min-height: 120px;
-  padding: 18px 22px;
-  border: 5px solid #3d220c;
-  border-radius: 20px;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 84px;
+  padding: 12px 14px;
+  border: 4px solid #3d220c;
+  border-radius: 16px;
   background: linear-gradient(#fff8e4, #efd7a4);
-  box-shadow: 0 6px 0 #241306;
+  box-shadow: 0 5px 0 #241306;
   color: #3d220c;
   font-family: "NotoJP", sans-serif;
   font-weight: 700;
@@ -1009,20 +1019,22 @@ img.abs {
   align-items: center;
   padding: 10px 28px;
   background: linear-gradient(#fff6dc, #e6cf9e);
-  font-size: 34px;
+  font-size: 30px;
 }
 
 .debug-area-tag {
-  padding: 2px 12px;
-  border-radius: 10px;
+  padding: 2px 10px;
+  border-radius: 8px;
   background: #3d220c;
   color: #f6e8c4;
-  font-size: 22px;
+  font-size: 18px;
 }
 
 .debug-area-name {
-  font-size: 36px;
-  line-height: 1.2;
+  max-width: 100%;
+  font-size: 28px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
 }
 
 #rotate {
@@ -1108,29 +1120,35 @@ img.abs {
   pointer-events: none;
 }
 
+/* Landscape is recommended on phones, but portrait must still be playable. */
 @media (orientation: portrait) and (pointer: coarse) {
   #rotate {
     position: fixed;
-    inset: 0;
+    left: 50%;
+    bottom: 28px;
     z-index: 10;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 28px;
-    background: #0b1a2a;
+    gap: 14px;
+    transform: translateX(-50%);
+    padding: 12px 18px;
+    border-radius: 999px;
+    background: rgba(11, 26, 42, 0.82);
     color: #fff;
     font-family: "NotoJP", sans-serif;
     font-weight: 700;
-    font-size: 22px;
+    font-size: 16px;
     text-align: center;
+    pointer-events: none;
   }
 
   #rotate-phone {
-    width: 70px;
-    height: 120px;
-    border: 6px solid #fff;
-    border-radius: 14px;
+    width: 22px;
+    height: 36px;
+    border: 3px solid #fff;
+    border-radius: 6px;
     animation: rotate-hint 2.2s ease-in-out infinite;
   }
 }

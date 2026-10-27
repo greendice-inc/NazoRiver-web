@@ -167,8 +167,8 @@ export class Tortoise extends Boss {
 
   protected nodes(): SceneNode[] {
     const live = this.current !== null && (this.stage === "play" || this.stage === "fail" || this.stage === "end");
-    const nodes: SceneNode[] = [img("kame", this.ex ? `${SPR}kame/カメ改_本体基本ポーズ.png` : `${SPR}kame/カメ_本体基本ポーズ.png`, -400, -100, 840, 648)];
-    nodes.push(...this.restNodes(`${SPR}kame/atoXmon_tortoise.png`, this.rest, 600, 440, 601, 151, 605, 90));
+    const nodes: SceneNode[] = [img("kame", this.ex ? `${SPR}kame/カメ改_本体基本ポーズ.webp` : `${SPR}kame/カメ_本体基本ポーズ.webp`, -400, -100, 840, 648)];
+    nodes.push(...this.restNodes(`${SPR}kame/atoXmon_tortoise.webp`, this.rest, 600, 440, 601, 151, 605, 90));
     let scale = 0.8;
     let cx = 300;
     let cy = 0;
@@ -180,12 +180,12 @@ export class Tortoise extends Boss {
     }
     const at = (x: number, y: number): [number, number] => [cx + x * scale, cy + y * scale];
     const [bx, by] = at(0, -150);
-    nodes.push(img("q-back", `${SPR}kame/nazo_back_tortoise.png`, bx, by, 900 * scale, 700 * scale));
+    nodes.push(img("q-back", `${SPR}kame/nazo_back_tortoise.webp`, bx, by, 900 * scale, 700 * scale));
     if (live && this.current) {
       nodes.push(img("q-image", qimg(this.current.file), bx, by, 800 * scale, 600 * scale));
       for (const bubble of this.bubbles) {
         const [x, y] = at(bubble.x, bubble.y - 150);
-        nodes.push(img(`bubble${bubble.id}`, `${SPR}kame/bubble.png`, x, y, 250 * scale, 250 * scale, { tap: this.ex ? undefined : bubble.id }));
+        nodes.push(img(`bubble${bubble.id}`, `${SPR}kame/bubble.webp`, x, y, 250 * scale, 250 * scale, { tap: this.ex ? undefined : bubble.id }));
       }
       if (this.stage === "play") {
         const [tx, ty] = at(0, 250);

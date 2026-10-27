@@ -4,7 +4,9 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import type { CameraPose, Gate, Prop, Sprite, TotemFaces } from "./types";
+import { BeeEnemy } from "./bee";
 import { UnityWater } from "./water";
+import { asset } from "./paths";
 
 const LINE = 10;
 const LINES_AHEAD = 14;
@@ -12,6 +14,9 @@ const FADE_NEAR = 112;
 const FADE_FAR = 140;
 const DEG = Math.PI / 180;
 const WATER_TEXTURE = 64;
+// Seconds for course objects to fade in when they first appear (e.g. after an enemy clears the view).
+const REVEAL_TIME = 0.6;
+const ENEMY_HEIGHT = 1.1;
 
 type SpriteDef = {
   file: string;
@@ -212,10 +217,11 @@ export class World {
   private water!: UnityWater;
   private textures = new Map<string, THREE.Texture>();
   private lines: { group: THREE.Group; sprites: FadingSprite[] }[] = [];
-  private obstacles = new Map<number, { object: THREE.Object3D; kind: Sprite["kind"]; nazo?: NazoCube; rock?: FadingSprite }>();
+  private obstacles = new Map<number, { object: THREE.Object3D; kind: Sprite["kind"]; born: number; nazo?: NazoCube; bee?: BeeEnemy; rock?: FadingSprite }>();
   private gateGroup = new THREE.Group();
   private gateSprites: FadingSprite[] = [];
   private gateKey = "";
+  private gateBaseZ = 0;
   private cubeMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: new THREE.Color(1, 1, 1),
@@ -273,11 +279,11 @@ export class World {
   private async load(): Promise<void> {
     const loader = new THREE.TextureLoader();
     const cubeLoader = new THREE.CubeTextureLoader();
-    const sky = cubeLoader.loadAsync(["px", "nx", "py", "ny", "pz", "nz"].map((face) => `/sky/${face}.jpg`));
-    const bump = loader.loadAsync("/water/bump.png");
-    const fresnel = fetch("/water/fresnel.json").then((res) => res.json() as Promise<number[]>);
+    const sky = cubeLoader.loadAsync(["px", "nx", "py", "ny", "pz", "nz"].map((face) => asset(`sky/${face}.jpg`)));
+    const bump = loader.loadAsync(asset("water/bump.webp"));
+    const fresnel = fetch(asset("water/fresnel.json")).then((res) => res.json() as Promise<number[]>);
     const sprites = textureFiles.map(async (file) => {
-      const texture = await loader.loadAsync(`/world/${file}.png`);
+      const texture = await loader.loadAsync(asset(`world/${file}.webp`));
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.anisotropy = 8;
       this.textures.set(file, texture);
@@ -287,7 +293,7 @@ export class World {
     this.daySky = skyTexture;
     this.scene.background = skyTexture;
     this.scene.environment = skyTexture;
-    const ura = await loader.loadAsync("/u/Sprites/ura_sky.png").catch(() => null);
+    const ura = await loader.loadAsync(asset("u/Sprites/ura_sky.webp")).catch(() => null);
     if (ura) {
       ura.colorSpace = THREE.SRGBColorSpace;
       this.nightSky = ura;
@@ -463,10 +469,10 @@ export class World {
     this.props.delete(id);
   }
 
-  // Cruise2Canvas/Boat: boat.png lying flat under the camera, seen when the camera looks straight down.
+  // Cruise2Canvas/Boat: boat.webp lying flat under the camera, seen when the camera looks straight down.
   private placeBoat(boat: { roll: number } | null): void {
     if (!this.boat) {
-      const texture = this.texture("/u/Sprites/ui/boat.png");
+      const texture = this.texture(asset("u/Sprites/ui/boat.webp"));
       if (!texture) return;
       const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.02, side: THREE.DoubleSide });
       this.boat = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.36), material);
@@ -492,7 +498,7 @@ export class World {
     }
     if (!totem) return;
     if (!this.totemFaces.length) {
-      const src = totem.ex ? "/u/Sprites/totem/トーテム改_帯素材.png" : "/u/Sprites/totem/トーテム_帯素材.png";
+      const src = asset(totem.ex ? "u/Sprites/totem/トーテム改_帯素材.webp" : "u/Sprites/totem/トーテム_帯素材.webp");
       const texture = this.texture(src);
       if (!texture) return;
       const ys = totem.ex ? [1.25, 0.75, 0.25] : [1.35, 0.95, 0.55, 0.15];
@@ -513,7 +519,7 @@ export class World {
   private placePillars(on: boolean): void {
     this.pillars.visible = on;
     if (!on || this.pillarsBuilt) return;
-    const textures = pillarFiles.map((file) => this.texture(`/u/Sprites/lastBoss/${file}.png`));
+    const textures = pillarFiles.map((file) => this.texture(asset(`u/Sprites/lastBoss/${file}.webp`)));
     if (textures.some((texture) => !texture)) return;
     this.pillarsBuilt = true;
     for (let k = 0; k < 8; k++) {
@@ -548,7 +554,7 @@ export class World {
   }
 
   private placeGate(gate: Gate | null, cameraZ: number, dt: number): void {
-    const key = gate ? `${gate.left}|${gate.right}|${gate.x}|${gate.z}` : "";
+    const key = gate ? `${gate.left}|${gate.right}|${gate.x}` : "";
     if (key !== this.gateKey) {
       this.gateKey = key;
       this.gateTime = 0;
@@ -558,18 +564,23 @@ export class World {
       }
       this.gateGroup.clear();
       this.gateSprites = [];
-      if (gate) this.buildGate(gate);
+      if (gate) {
+        this.buildGate(gate);
+        this.gateBaseZ = gate.z;
+      }
     }
     if (!gate) return;
+    // The cruise quiz slides the gate along with the boat; move the group instead of rebuilding it.
+    this.gateGroup.position.z = -(gate.z - this.gateBaseZ);
     this.gateTime += dt;
     // Cruise2 ShowChoiceGate: gate sprites fade from clear black to black (1s), then to white (1s); walls appear after.
-    const alpha = gate.fadeIn ? Math.min(1, this.gateTime) : 1;
+    const alpha = gate.fadeIn ? Math.min(1, this.gateTime) : Math.min(1, this.gateTime / REVEAL_TIME);
     const light = gate.fadeIn ? Math.min(1, Math.max(0, this.gateTime - 1)) : 1;
     for (const sprite of this.gateSprites) {
-      const depth = -sprite.mesh.position.z - cameraZ;
+      const depth = -(sprite.mesh.position.z + this.gateGroup.position.z) - cameraZ;
       const wall = sprite.mesh.userData.wall === true;
       if (wall) {
-        sprite.setOpacity(gate.fadeIn && this.gateTime < 2 ? 0 : this.fade(depth));
+        sprite.setOpacity(gate.fadeIn && this.gateTime < 2 ? 0 : this.fade(depth) * (gate.fadeIn ? 1 : alpha));
       } else {
         sprite.setOpacity(this.fade(depth) * alpha);
         sprite.mesh.material.color.copy(srgbGray(light));
@@ -612,19 +623,26 @@ export class World {
       seen.add(sprite.id);
       let entry = this.obstacles.get(sprite.id);
       if (!entry) {
-        if (sprite.kind === "nazo" || sprite.kind === "enemy") {
+        const born = this.time;
+        if (sprite.kind === "enemy") {
+          const bee = new BeeEnemy();
+          entry = { object: bee.group, kind: sprite.kind, born, bee };
+        } else if (sprite.kind === "nazo") {
           const nazo = new NazoCube(this.cubeMaterial, this.glow);
-          entry = { object: nazo.group, kind: sprite.kind, nazo };
+          entry = { object: nazo.group, kind: sprite.kind, born, nazo };
         } else {
           const rock = new FadingSprite(this.textures.get("stone_1")!, 0.64, 0.6226415);
-          entry = { object: rock.mesh, kind: sprite.kind, rock };
+          entry = { object: rock.mesh, kind: sprite.kind, born, rock };
         }
         this.scene.add(entry.object);
         this.obstacles.set(sprite.id, entry);
       }
       const depth = sprite.z - cameraZ;
-      const opacity = this.fade(depth);
-      if (entry.nazo) {
+      const opacity = this.fade(depth) * Math.min(1, (this.time - entry.born) / REVEAL_TIME);
+      if (entry.bee) {
+        entry.object.position.set(sprite.x, 0, -sprite.z);
+        entry.bee.update(this.time, opacity, sprite.y ?? ENEMY_HEIGHT);
+      } else if (entry.nazo) {
         entry.object.position.set(sprite.x, 0.5, -sprite.z);
         entry.nazo.update(this.time, dt, opacity);
       } else if (entry.rock) {
@@ -635,6 +653,7 @@ export class World {
     for (const [id, entry] of this.obstacles) {
       if (seen.has(id)) continue;
       this.scene.remove(entry.object);
+      entry.bee?.dispose();
       if (entry.rock) {
         entry.rock.mesh.geometry.dispose();
         entry.rock.mesh.material.dispose();

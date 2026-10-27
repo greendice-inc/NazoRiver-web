@@ -190,13 +190,13 @@ export class Statue extends Boss {
     const t = this.clock - this.kickAt;
     const fall = this.collapsing ? seg(t, 3, 4) : 0;
     const bodyY = lerp(-100, -400, fall);
-    nodes.push(at("sekizou", `${SPR}lastBoss/神像_分割素材_本体.png`, 0, bodyY, 1251, 701, { alpha: 1 - fall, tap: 99 }));
+    nodes.push(at("sekizou", `${SPR}lastBoss/神像_分割素材_本体.webp`, 0, bodyY, 1251, 701, { alpha: 1 - fall, tap: 99 }));
     const stoneY = bodyY - 80;
     if (!this.collapsing) {
-      nodes.push(at("stone", `${RES}lastBoss/神像_分割素材_鉱石.png`, 0, stoneY, 240, 240, { tap: 99 }));
-      if (this.color) nodes.push(at("color-stone", `${RES}lastBoss/stone_${this.color}.png`, 0, stoneY, 120, 160, { tap: 99 }));
+      nodes.push(at("stone", `${RES}lastBoss/神像_分割素材_鉱石.webp`, 0, stoneY, 240, 240, { tap: 99 }));
+      if (this.color) nodes.push(at("color-stone", `${RES}lastBoss/stone_${this.color}.webp`, 0, stoneY, 120, 160, { tap: 99 }));
     } else {
-      nodes.push(at("collapse-stone", `${RES}lastBoss/stone_green.png`, 0, stoneY, 120, 160, { alpha: 1 - fall }));
+      nodes.push(at("collapse-stone", `${RES}lastBoss/stone_green.webp`, 0, stoneY, 120, 160, { alpha: 1 - fall }));
     }
     const live = this.stage === "play" || this.stage === "fail" || this.stage === "end";
     if (live) {
@@ -206,7 +206,7 @@ export class Statue extends Boss {
         const [x, y] = slotPos[i];
         const k = grow;
         const rate = Math.max(slot.time, 0) / this.maxTime;
-        nodes.push(at(`slot${i}-back`, `${SPR}ui/nazo_back_normal.png`, x, y, 720 * k, 560 * k));
+        nodes.push(at(`slot${i}-back`, `${SPR}ui/nazo_back_normal.webp`, x, y, 720 * k, 560 * k));
         nodes.push(at(`slot${i}-image`, qimg(slot.q.file), x, y, 640 * k, 480 * k));
         nodes.push(rect(`slot${i}-gauge-back`, x * s, (y + 300 * k) * s, 160 * k * s, 160 * k * s, "rgb(94,94,94)", { round: true }));
         nodes.push(rect(`slot${i}-gauge`, x * s, (y + 300 * k) * s, 160 * k * s, 160 * k * s, gaugeTint(rate), { round: true, fill: rate, fillFrom: "radial" }));
@@ -216,7 +216,7 @@ export class Statue extends Boss {
     if (this.hitting && this.kickColor) {
       const reaction = reactions[this.kickColor];
       const pop = this.kickColor === "green" ? (t >= 3 ? popup(t - 3, 3.75) : null) : popup(t - 1, 2);
-      if (pop) nodes.push(img("reaction", `${SPR}lastBoss/${reaction.file}.png`, 0, 150, reaction.w, reaction.h, { alpha: pop.alpha, scale: pop.scale }));
+      if (pop) nodes.push(img("reaction", `${SPR}lastBoss/${reaction.file}.webp`, 0, 150, reaction.w, reaction.h, { alpha: pop.alpha, scale: pop.scale }));
     }
     return nodes;
   }

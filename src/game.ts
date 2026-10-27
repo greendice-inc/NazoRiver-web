@@ -10,22 +10,26 @@ import { Statue } from "./modes/statue";
 import { Tortoise } from "./modes/tortoise";
 import { Totem } from "./modes/totem";
 import { buildRecord, newRun, type RunRecord, type RunStats } from "./trophies";
-import type { CameraPose, Ending, GameEvent, Gate, Hearts, ObstacleKind, PhaseName, Sprite, View } from "./types";
+import type { CameraPose, Ending, GameEvent, Gate, ObstacleKind, PhaseName, Sprite, View } from "./types";
+import { asset } from "./paths";
 
 export const STEP = 1 / 30;
 
-const MAX_LIFE = 14400;
-const QUESTION_TIME = 30;
+export const MAX_HEARTS = 5;
+const QUIZ_TIME = 15;
+// Depth at which an enemy stops in front of the boat and starts its quiz.
+const ENEMY_AHEAD = 14;
+// While its quiz is open the bee hovers above the question card (enemy up, 謎 down).
+const QUIZ_BEE_X = 0.4;
+const QUIZ_BEE_Y = 2.45;
+const QUIZ_BEE_MOVE = 0.6;
 const LINE = 10;
 const COUNTDOWN_GO = 3.25;
-const COUNTDOWN_END = 4;
 const BRANCH_APPROACH = 2;
 const TURN_TIME = 5;
 const BLACK_IN = 1;
 const BLACK_HOLD = 3;
 const INTRO_TIME = 4;
-const MARK_TIME = 1;
-const QEND_TIME = 2.6;
 const LAUNCH_WHITE_IN = 0.12;
 const LAUNCH_WHITE_FULL = 0.5;
 const LAUNCH_END = 1.1;
@@ -35,7 +39,6 @@ const SECRET_UP_GAP = 1800;
 type Checkpoint = {
   cameraZ: number;
   lane: number;
-  collected: number;
   questionIndex: number;
   run: RunStats;
   hits: Record<number, boolean>;
@@ -54,28 +57,31 @@ type Obstacle = {
   right: number;
 };
 
+// An enemy's question. While it is open the course stops approaching (the boat still rows forward visually).
+type Quiz = {
+  question: Question;
+  enemyId: number;
+  time: number;
+};
+
 type Phase =
   | { name: "title" }
   | { name: "launch"; time: number }
-  | { name: "intro"; time: number; image: string; count: number | null; next: "cruise" | "question" }
-  | { name: "countdown"; time: number; next: "cruise" | "question" }
+  | { name: "intro"; time: number; image: string }
+  | { name: "countdown"; time: number }
   | { name: "cruise" }
   | { name: "branch"; time: number; choosing: boolean; fromX: number; fromZ: number }
   | { name: "turn"; time: number; dir: -1 | 1; fromZ: number }
   | { name: "black"; time: number }
-  | { name: "question"; time: number; elapsed: number }
-  | { name: "mark"; time: number; ok: boolean; elapsed: number; remain: number }
-  | { name: "qend"; time: number }
   | { name: "mode" }
   | { name: "result"; time: number; file: string }
   | { name: "over" };
 
 const introImages: Record<number, string> = {
-  10: "/art/iwaba.png",
-  11: "/art/keikoku.png",
+  10: asset("art/iwaba.webp"),
+  11: asset("art/keikoku.webp"),
 };
 
-const HEART_SE_DELAY = 0.2;
 const RESULT_BGM_DELAY = 7;
 
 function laneX(lane: number): number {
@@ -104,26 +110,15 @@ function routeFor(level: number): number {
   return 0;
 }
 
-// Enemy / collected nazo type for the cruise `level` they were met in.
-function questionTypeFor(level: number): Question["type"] | null {
-  if (level === 0 || level === 40) return "道1";
+// Question type asked by the enemies of the cruise `level`.
+function questionTypeFor(level: number): Question["type"] {
   if (level === 10) return "道2左";
   if (level === 11) return "道2右";
-  return null;
+  return "道1";
 }
 
 function isModeLevel(level: number): boolean {
   return (level >= 20 && level <= 23) || (level >= 30 && level <= 34) || level === 42 || level === 50 || level === 60;
-}
-
-// LifeGauge → LifePoint (GameControllerScript.ConvertLifeGaugeAnimation).
-// Cruise2 never ends the run at 0 life, so an empty gauge still enters the boss with one heart.
-function heartsFromLife(life: number): number {
-  if (life >= MAX_LIFE || life > (MAX_LIFE * 4) / 5) return 5;
-  if (life > (MAX_LIFE * 3) / 5) return 4;
-  if (life > (MAX_LIFE * 2) / 5) return 3;
-  if (life > MAX_LIFE / 5) return 2;
-  return 1;
 }
 
 function shuffle<T>(list: T[]): T[] {
@@ -163,8 +158,6 @@ function buildObstacles(rows: string[]): Obstacle[] {
           left: -6 + span,
           right: 6 + span,
         });
-      } else if (cell === "N") {
-        list.push({ ...base, id: nextId++, kind: "nazo", lane, z: ahead });
       } else if (cell === "E") {
         list.push({ ...base, id: nextId++, kind: "enemy", lane: 3, z: ahead });
         break;
@@ -185,8 +178,8 @@ function findGate(stage: StageDef): Gate | null {
     return {
       x: laneX(column + 1),
       z: index * LINE,
-      left: `/gates/${stage.leftGate}`,
-      right: `/gates/${stage.rightGate}`,
+      left: asset(`gates/${stage.leftGate}`),
+      right: asset(`gates/${stage.rightGate}`),
     };
   }
   return null;
@@ -194,9 +187,9 @@ function findGate(stage: StageDef): Gate | null {
 
 export class Game {
   level = 0;
-  life = MAX_LIFE;
-  collected = 0;
   cameraZ = 0;
+  // Distance rowed while a quiz holds the course; added to everything drawn so the boat keeps moving.
+  drift = 0;
   lane = 3;
   laneFrom = 3;
   laneTo = 3;
@@ -219,6 +212,7 @@ export class Game {
   obstacles: Obstacle[] = [];
   queue: Question[] = [];
   questionIndex = 0;
+  quiz: Quiz | null = null;
   prevZ = 0;
   leftPresses = 0;
   rightPresses = 0;
@@ -226,10 +220,7 @@ export class Game {
   run: RunStats = newRun();
   record: RunRecord | null = null;
   mode: Mode | null = null;
-  lifePoint = 0;
-  hearts: Hearts | null = null;
-  private inline = false;
-  private afterQuestions = false;
+  lifePoint = MAX_HEARTS;
   private checkpoint: Checkpoint | null = null;
   private turnEnd: { dir: -1 | 1; fromZ: number } | null = null;
   private events: GameEvent[] = [];
@@ -243,21 +234,12 @@ export class Game {
     this.host = {
       run: this.run,
       emit: (event) => this.emit(event),
-      life: () => this.life,
-      setLife: (value) => {
-        this.life = Math.max(0, Math.min(MAX_LIFE, value));
-      },
       lifePoint: () => this.lifePoint,
       setLifePoint: (value) => {
-        this.lifePoint = Math.max(0, Math.min(5, value));
-        if (this.hearts) this.hearts.count = this.lifePoint;
+        this.lifePoint = Math.max(0, Math.min(MAX_HEARTS, value));
         return this.lifePoint > 0;
       },
-      convertHearts: () => {
-        this.lifePoint = heartsFromLife(this.life);
-        this.hearts = { count: this.lifePoint, since: 0 };
-      },
-      showHearts: () => this.showHearts(),
+      gameOver: () => this.gameOver(),
       focusAnswer: () => {
         this.focusToken += 1;
         this.answerEcho = "";
@@ -292,17 +274,13 @@ export class Game {
 
   restart(): void {
     this.level = 0;
-    this.life = MAX_LIFE;
-    this.collected = 0;
+    this.lifePoint = MAX_HEARTS;
     this.answerEcho = "";
-    this.queue = [];
-    this.questionIndex = 0;
     this.blackFade = 0;
     Object.assign(this.run, newRun());
     this.record = null;
     this.checkpoint = null;
     this.secretLifts = 0;
-    this.lifePoint = 0;
     this.clearMode();
     this.phase = { name: "title" };
     this.loadCruise(0);
@@ -313,19 +291,18 @@ export class Game {
     const point = this.checkpoint;
     if (this.phase.name !== "over") return;
     if (isModeLevel(this.level)) {
-      this.life = MAX_LIFE;
+      this.lifePoint = MAX_HEARTS;
       this.record = null;
       this.enterMode(this.level);
       return;
     }
     if (!point) return;
-    this.life = MAX_LIFE;
+    this.lifePoint = MAX_HEARTS;
     this.record = null;
     this.answerEcho = "";
     this.blackFade = 0;
-    this.inline = false;
+    this.quiz = null;
     Object.assign(this.run, point.run);
-    this.collected = point.collected;
     this.questionIndex = point.questionIndex;
     for (const obstacle of this.obstacles) {
       obstacle.hit = point.hits[obstacle.id] ?? false;
@@ -337,6 +314,7 @@ export class Game {
     }
     this.cameraZ = point.cameraZ;
     this.prevZ = point.cameraZ;
+    this.drift = 0;
     this.lane = point.lane;
     this.laneFrom = point.lane;
     this.laneTo = point.lane;
@@ -350,16 +328,13 @@ export class Game {
     this.rightPresses = 0;
     this.secretLifts = 0;
     this.emit({ type: "bgm", name: "river" });
-    this.startCountdown("cruise");
+    this.startCountdown();
   }
 
   // Debug area jump. 510–515 start the rush at SecretBossNumList [n, 5].
   debugJump(level: number): void {
-    this.life = MAX_LIFE;
-    this.collected = 0;
+    this.lifePoint = MAX_HEARTS;
     this.answerEcho = "";
-    this.queue = [];
-    this.questionIndex = 0;
     this.blackFade = 0;
     this.record = null;
     Object.assign(this.run, newRun());
@@ -368,19 +343,16 @@ export class Game {
     this.clearMode();
     if (level >= 510) {
       this.run.secretList = level === 515 ? [5] : [level - 510, 5];
-      this.lifePoint = 5;
       level = 50;
     } else if (level === 50) {
       this.run.secretList = [2];
-    } else if (level === 60) {
-      this.lifePoint = 5;
     }
     if (cruiseLevels.has(level)) {
       this.loadCruise(level);
       this.emit({ type: "bgm", name: "river" });
       const image = introImages[level];
-      if (image) this.phase = { name: "intro", time: INTRO_TIME, image, count: null, next: "cruise" };
-      else this.startCountdown("cruise");
+      if (image) this.phase = { name: "intro", time: INTRO_TIME, image };
+      else this.startCountdown();
       return;
     }
     if (isModeLevel(level)) this.enterMode(level);
@@ -403,6 +375,11 @@ export class Game {
 
   tapPanel(index: number): void {
     if (this.phase.name === "mode") this.mode?.tap(index);
+  }
+
+  // Stroke start point in stage pixels (1920×1080, y down).
+  strokeAt(x: number, y: number): void {
+    if (this.phase.name === "mode") this.mode?.strokeAt(x, y);
   }
 
   advance(): void {
@@ -432,19 +409,14 @@ export class Game {
       if (result === "clear") this.answerEcho = "";
       return result;
     }
-    if (this.phase.name !== "question") return "keep";
+    if (!this.quiz || this.phase.name !== "cruise") return "keep";
     const answer = normalizeAnswer(raw);
     if (!answer) return "keep";
-    const current = this.queue[this.questionIndex];
-    if (current.answers.some((item) => normalizeAnswer(item) === answer)) {
-      this.life = Math.min(MAX_LIFE, this.life + 900);
-      this.phase = { name: "mark", time: MARK_TIME, ok: true, elapsed: this.phase.elapsed, remain: this.phase.time };
-      this.answerEcho = "";
-      this.emit({ type: "answer", ok: true });
-      this.emit({ type: "se", name: "piropiropiron" });
+    this.answerEcho = "";
+    if (this.quiz.question.answers.some((item) => normalizeAnswer(item) === answer)) {
+      this.endQuiz(true);
       return "clear";
     }
-    this.answerEcho = "";
     this.emit({ type: "miss" });
     this.emit({ type: "se", name: "bu" });
     return "clear";
@@ -471,7 +443,7 @@ export class Game {
   }
 
   setEcho(text: string): void {
-    if (this.phase.name === "question" || (this.phase.name === "mode" && this.modeView?.answering)) {
+    if (this.quiz || (this.phase.name === "mode" && this.modeView?.answering)) {
       this.answerEcho = text;
       this.mode?.echo(text);
     }
@@ -480,7 +452,6 @@ export class Game {
   step(): void {
     if (this.wind > 0) this.wind -= STEP;
     if (this.phase.name !== "black" && this.blackFade > 0) this.blackFade = Math.max(0, this.blackFade - STEP);
-    this.stepHearts();
 
     switch (this.phase.name) {
       case "launch": {
@@ -488,12 +459,12 @@ export class Game {
         this.phase.time += STEP;
         const now = this.phase.time;
         if (before < LAUNCH_WHITE_FULL && now >= LAUNCH_WHITE_FULL) this.emit({ type: "bgm", name: "river" });
-        if (now >= LAUNCH_END) this.startCountdown("cruise");
+        if (now >= LAUNCH_END) this.startCountdown();
         break;
       }
       case "intro":
         this.phase.time -= STEP;
-        if (this.phase.time <= 0) this.startCountdown(this.phase.next);
+        if (this.phase.time <= 0) this.startCountdown();
         break;
       case "countdown":
         this.advanceCountdown();
@@ -513,23 +484,6 @@ export class Game {
         this.blackFade = clamp01(this.phase.time / BLACK_IN);
         if (this.phase.time >= BLACK_HOLD) this.resolveBlack();
         break;
-      case "question":
-        this.advanceQuestion();
-        break;
-      case "mark":
-        this.phase.time -= STEP;
-        this.phase.elapsed += STEP;
-        if (!this.inline) this.cameraZ += 0.05;
-        if (this.phase.time <= 0) this.nextQuestion();
-        break;
-      case "qend":
-        this.phase.time -= STEP;
-        this.cameraZ += 0.05;
-        if (this.phase.time <= 0) {
-          this.afterQuestions = true;
-          this.phase = { name: "black", time: 0 };
-        }
-        break;
       case "mode":
         this.mode?.step();
         break;
@@ -548,16 +502,26 @@ export class Game {
 
   view(): View {
     const sprites: Sprite[] = [];
+    const quizEnemy = this.quiz?.enemyId;
+    const horizon = this.enemyHorizon();
     for (const obstacle of this.obstacles) {
-      if (obstacle.hit || obstacle.kind === "choice" || obstacle.kind === "windL" || obstacle.kind === "windR") continue;
+      if (obstacle.kind === "choice" || obstacle.kind === "windL" || obstacle.kind === "windR") continue;
+      if (obstacle.hit && obstacle.id !== quizEnemy) continue;
+      // Nothing past the next enemy is drawn until it is dealt with; only the river shows behind it.
+      if (horizon !== null && obstacle.z > horizon) continue;
       const depth = obstacle.z - this.cameraZ;
       if (depth < -8 || depth > 112) continue;
-      sprites.push({ id: obstacle.id, kind: obstacle.kind, z: obstacle.z, x: this.obstacleX(obstacle) });
+      const sprite: Sprite = { id: obstacle.id, kind: obstacle.kind, z: obstacle.z + this.drift, x: this.obstacleX(obstacle) };
+      if (obstacle.id === quizEnemy && this.quiz) {
+        const k = outQuad(clamp01((QUIZ_TIME - this.quiz.time) / QUIZ_BEE_MOVE));
+        sprite.x += QUIZ_BEE_X * k;
+        sprite.y = 1.1 + (QUIZ_BEE_Y - 1.1) * k;
+      }
+      sprites.push(sprite);
     }
 
     const phase = this.phase;
-    const inQuestion = phase.name === "question" || phase.name === "mark";
-    const question = inQuestion ? this.queue[this.questionIndex] : undefined;
+    const quiz = this.quiz;
     const lane = this.displayLane();
     const steering = this.steeringOn();
     const choosing = phase.name === "branch" && phase.choosing;
@@ -576,24 +540,22 @@ export class Game {
       phase.name === "cruise" ||
       phase.name === "branch" ||
       phase.name === "turn" ||
-      (phase.name === "countdown" && phase.next === "cruise") ||
-      (phase.name === "intro" && phase.next === "cruise");
+      phase.name === "countdown" ||
+      phase.name === "intro";
 
     let ending: Ending | null = null;
     if (phase.name === "over") {
-      ending = { kind: "over", image: null, title: "体力がなくなってしまった…", text: "この場所から、もう一度挑戦できる。" };
+      ending = { kind: "over", image: null, title: "ハートがなくなってしまった…", text: "この場所から、もう一度挑戦できる。" };
     } else if (phase.name === "result") {
-      ending = { kind: "result", image: `/u/Resources/ui/${phase.file}.png`, title: "", text: "" };
+      ending = { kind: "result", image: asset(`u/Resources/ui/${phase.file}.webp`), title: "", text: "" };
     }
 
     const camera = this.cameraPose(mv);
+    const hiddenGate = !!this.gate && horizon !== null && this.gate.z > horizon;
+    const gate = !this.gate || hiddenGate ? null : this.drift ? { ...this.gate, z: this.gate.z + this.drift } : this.gate;
     return {
       phase: phase.name as PhaseName,
       level: this.level,
-      life: this.life,
-      maxLife: MAX_LIFE,
-      collected: inQuestion ? this.queue.length - this.questionIndex : this.collected,
-      counter: !this.mode && phase.name !== "title",
       gauge: inMode ? mv.gauge : gauge,
       gaugeFull: inMode ? mv.gaugeFull : gaugeFull,
       arrows: inMode ? mv.arrows : arrows,
@@ -606,17 +568,13 @@ export class Game {
       hudRoll: mv && (inMode || phase.name === "black") ? mv.hudRoll : undefined,
       sprites,
       props: mv ? mv.props : [],
-      gate: mv && phase.name !== "result" ? mv.gate : this.gate,
-      intro: phase.name === "intro" ? { image: phase.image, count: phase.count } : null,
+      gate: mv && phase.name !== "result" ? mv.gate : gate,
+      intro: phase.name === "intro" ? { image: phase.image } : null,
       caution: phase.name === "branch" && !phase.choosing,
-      routeMap: choosing && this.level !== 40 ? `/art/branch_${this.stage.level}.png` : null,
-      questionSrc: question ? `/questions/${question.file}.png` : "",
-      questionTime: phase.name === "question" ? phase.time : phase.name === "mark" ? phase.remain : QUESTION_TIME,
-      questionMax: QUESTION_TIME,
-      questionElapsed: inQuestion ? phase.elapsed : 0,
-      answering: phase.name === "question" || (inMode && mv.answering),
+      routeMap: choosing && this.level !== 40 ? asset(`art/branch_${this.stage.level}.webp`) : null,
+      quiz: quiz ? { src: asset(`questions/${quiz.question.file}.webp`), time: quiz.time, max: QUIZ_TIME } : null,
+      answering: !!quiz || (inMode && mv.answering),
       answerEcho: this.answerEcho,
-      qend: phase.name === "qend",
       black: Math.max(this.blackFade, inMode ? mv.black : 0),
       white: this.whiteFade(),
       titleScreen: phase.name === "title" || (phase.name === "launch" && this.level !== 40 && phase.time < LAUNCH_WHITE_FULL),
@@ -626,7 +584,7 @@ export class Game {
       canRetry: phase.name === "over" && (!!this.checkpoint || isModeLevel(this.level)),
       secret: this.level === 40 || this.level === 42 || this.level === 50 || this.level === 60,
       scene: mv && (inMode || phase.name === "black" || phase.name === "branch" || phase.name === "turn") ? mv.scene : [],
-      hearts: this.hearts,
+      hearts: this.lifePoint,
       waitTap: inMode && mv.waitTap,
       boat: mv ? mv.boat : null,
       totem: mv ? mv.totem : null,
@@ -655,7 +613,7 @@ export class Game {
     const ownTurn = phase.name === "branch" || phase.name === "turn" || (phase.name === "black" && this.turnEnd);
     if (mv && !ownTurn) return mv.camera;
     let x = laneX(this.displayLane());
-    let z = this.cameraZ;
+    let z = this.cameraZ + this.drift;
     let yaw = 0;
     let roll = 0;
 
@@ -702,10 +660,8 @@ export class Game {
     this.level = stage.level;
     this.obstacles = buildObstacles(stage.rows);
     this.gate = findGate(stage);
-    this.collected = 0;
-    this.inline = false;
-    const type = questionTypeFor(stage.level) ?? "道1";
-    this.queue = shuffle(questions.filter((question) => question.type === type)).slice(0, 3);
+    const type = questionTypeFor(stage.level);
+    this.queue = shuffle(questions.filter((question) => question.type === type));
     this.questionIndex = 0;
     this.resetRide();
   }
@@ -716,10 +672,8 @@ export class Game {
     this.resetRide();
     this.obstacles = [];
     this.gate = null;
-    this.collected = 0;
     this.queue = [];
     this.questionIndex = 0;
-    this.inline = false;
     this.checkpoint = null;
     this.mode = this.createMode(level);
     this.phase = { name: "mode" };
@@ -735,13 +689,9 @@ export class Game {
     if (level === 33) return new Crocodile(host, false);
     if (level === 34) return new Tortoise(host, false);
     if (level === 42) return new CruiseEx(host);
-    if (level === 60) {
-      this.showHearts();
-      return new CruiseLast(host);
-    }
+    if (level === 60) return new CruiseLast(host);
     // 50: SecretBossNumList[0] decides the next rush boss.
     const rush = this.run.secretList[0] ?? 5;
-    if (rush !== 2) this.showHearts();
     if (rush === 0) return new Octopus(host, true);
     if (rush === 1) return new Lobster(host, true);
     if (rush === 2) return new Totem(host, true);
@@ -753,23 +703,6 @@ export class Game {
   private clearMode(): void {
     this.mode = null;
     this.modeView = null;
-    this.hearts = null;
-  }
-
-  private showHearts(): void {
-    if (this.lifePoint <= 0) this.lifePoint = heartsFromLife(this.life);
-    this.hearts = { count: this.lifePoint, since: Infinity };
-  }
-
-  private stepHearts(): void {
-    const hearts = this.hearts;
-    if (!hearts || !Number.isFinite(hearts.since)) return;
-    const before = hearts.since;
-    hearts.since += STEP;
-    for (let i = 0; i < 5; i++) {
-      const at = 1 + i * 0.8 + HEART_SE_DELAY;
-      if (before < at && hearts.since >= at) this.emit({ type: "se", name: i < hearts.count ? "pupo" : "kyun" });
-    }
   }
 
   private showResult(file: string): void {
@@ -782,6 +715,8 @@ export class Game {
   private resetRide(): void {
     this.cameraZ = 0;
     this.prevZ = 0;
+    this.drift = 0;
+    this.quiz = null;
     this.lane = 3;
     this.laneFrom = 3;
     this.laneTo = 3;
@@ -796,34 +731,34 @@ export class Game {
     this.rightPresses = 0;
   }
 
-  private startCountdown(next: "cruise" | "question"): void {
-    this.phase = { name: "countdown", time: 0, next };
-    this.emit({ type: "countdown", kind: next });
-    this.emit({ type: "se", name: next === "cruise" ? "321pua-" : "pi" });
+  private startCountdown(): void {
+    this.phase = { name: "countdown", time: 0 };
+    this.emit({ type: "countdown" });
+    this.emit({ type: "se", name: "321pua-" });
   }
 
   private advanceCountdown(): void {
     if (this.phase.name !== "countdown") return;
     this.phase.time += STEP;
-    if (this.phase.next === "cruise" && this.phase.time >= COUNTDOWN_GO) {
+    if (this.phase.time >= COUNTDOWN_GO) {
       this.phase = { name: "cruise" };
       this.leftPresses = 0;
       this.rightPresses = 0;
       this.saveCheckpoint();
-    } else if (this.phase.next === "question" && this.phase.time >= COUNTDOWN_END) {
-      this.showQuestion();
     }
   }
 
   private advanceCruise(): void {
     this.moveMovers();
+    this.stepQuiz();
+    if (this.phase.name !== "cruise") return;
     if (this.damaging > 0) {
       this.damaging -= STEP;
       const t = clamp01(1 - Math.max(this.damaging, 0) / 1.2);
       this.cameraZ = this.knockFrom + (this.knockTo - this.knockFrom) * outQuad(t);
       if (this.damaging <= 0) {
         this.prevZ = this.cameraZ;
-        this.saveCheckpoint();
+        if (!this.quiz) this.saveCheckpoint();
       }
       return;
     }
@@ -860,11 +795,12 @@ export class Game {
       else if (this.gauge <= -1) this.beginLane(this.lane - 1);
     }
 
+    if (this.quiz) {
+      this.drift += this.speed;
+      return;
+    }
     this.cameraZ += this.speed;
     this.tryHits();
-    if (this.phase.name !== "cruise") return;
-    this.life = Math.max(0, this.life - 1);
-    if (this.life <= 0) this.gameOver();
   }
 
   private advanceBranch(): void {
@@ -892,18 +828,56 @@ export class Game {
     else if (this.gauge <= -1) this.choose(-1);
   }
 
-  private advanceQuestion(): void {
-    if (this.phase.name !== "question") return;
-    if (!this.inline) this.cameraZ += 0.05;
-    this.phase.time -= STEP;
-    this.phase.elapsed += STEP;
-    if (this.phase.time <= 0) {
-      this.phase = { name: "mark", time: MARK_TIME, ok: false, elapsed: this.phase.elapsed, remain: 0 };
-      this.run.allCorrect = false;
-      this.answerEcho = "";
-      this.emit({ type: "answer", ok: false });
-      this.emit({ type: "se", name: "bu" });
+  private startQuiz(enemy: Obstacle): void {
+    const question = this.queue[this.questionIndex % this.queue.length];
+    this.questionIndex += 1;
+    this.quiz = { question, enemyId: enemy.id, time: QUIZ_TIME };
+    this.answerEcho = "";
+    this.focusToken += 1;
+    this.emit({ type: "se", name: "deden" });
+  }
+
+  private stepQuiz(): void {
+    if (!this.quiz) return;
+    this.quiz.time -= STEP;
+    if (this.quiz.time <= 0) this.endQuiz(false);
+  }
+
+  // Correct: +1 heart. Time over: −1 heart. Either way the course starts approaching again.
+  private endQuiz(ok: boolean): void {
+    const quiz = this.quiz;
+    if (!quiz) return;
+    this.quiz = null;
+    this.answerEcho = "";
+    this.run.totalQuestions += 1;
+    this.emit({ type: "answer", ok });
+    if (ok) {
+      this.lifePoint = Math.min(MAX_HEARTS, this.lifePoint + 1);
+      this.emit({ type: "se", name: "piropiropiron" });
+      const enemy = this.obstacles.find((item) => item.id === quiz.enemyId);
+      if (enemy) this.emit({ type: "nazoGet", x: this.obstacleX(enemy) + QUIZ_BEE_X, z: enemy.z + this.drift });
+      this.saveCheckpoint();
+      return;
     }
+    this.run.allCorrect = false;
+    this.emit({ type: "se", name: "bu" });
+    if (!this.loseHeart()) return;
+    this.gauge = 0;
+    this.moving = false;
+    this.damaging = 1.2;
+    this.knockFrom = this.cameraZ;
+    this.knockTo = this.cameraZ;
+  }
+
+  // Z of the nearest enemy still ahead (unanswered, or its quiz is open); null when none remain.
+  private enemyHorizon(): number | null {
+    let horizon: number | null = null;
+    for (const obstacle of this.obstacles) {
+      if (obstacle.kind !== "enemy") continue;
+      if (obstacle.hit && obstacle.id !== this.quiz?.enemyId) continue;
+      if (horizon === null || obstacle.z < horizon) horizon = obstacle.z;
+    }
+    return horizon;
   }
 
   private choose(dir: -1 | 1): void {
@@ -922,71 +896,22 @@ export class Game {
 
   private resolveBlack(): void {
     this.turnEnd = null;
-    const type = questionTypeFor(this.stage.level);
-    const fromQuestions = this.afterQuestions;
-    this.afterQuestions = false;
-
-    if (!fromQuestions && !this.mode && this.collected > 0 && type) {
-      const count = this.collected;
-      this.queue = shuffle(questions.filter((question) => question.type === type)).slice(0, count);
-      this.questionIndex = 0;
-      this.collected = 0;
-      this.resetRide();
-      this.phase = { name: "intro", time: INTRO_TIME, image: "/art/nazowotokou.png", count, next: "question" };
-      this.emit({ type: "bgm", name: "question" });
-      return;
-    }
-
     if (cruiseLevels.has(this.level)) {
       this.loadCruise(this.level);
       this.emit({ type: "bgm", name: "river" });
       const image = introImages[this.level];
-      if (image) this.phase = { name: "intro", time: INTRO_TIME, image, count: null, next: "cruise" };
-      else this.startCountdown("cruise");
+      if (image) this.phase = { name: "intro", time: INTRO_TIME, image };
+      else this.startCountdown();
       return;
     }
 
     if (isModeLevel(this.level)) this.enterMode(this.level);
   }
 
-  private showQuestion(): void {
-    this.phase = { name: "question", time: QUESTION_TIME, elapsed: 0 };
-    this.answerEcho = "";
-    this.focusToken += 1;
-    this.emit({ type: "questionNumber", n: this.questionIndex + 1 });
-    this.emit({ type: "se", name: "deden" });
-  }
-
-  private nextQuestion(): void {
-    if (this.inline) {
-      const ok = this.phase.name === "mark" && this.phase.ok;
-      this.inline = false;
-      this.questionIndex += 1;
-      this.run.totalQuestions += 1;
-      if (ok) {
-        this.collected += 1;
-        this.emit({ type: "nazoGet", x: 0, z: this.cameraZ + 2 });
-        this.emit({ type: "se", name: "syukin" });
-      }
-      this.phase = { name: "cruise" };
-      this.leftPresses = 0;
-      this.rightPresses = 0;
-      this.prevZ = this.cameraZ;
-      this.saveCheckpoint();
-      return;
-    }
-    this.questionIndex += 1;
-    if (this.questionIndex >= this.queue.length) {
-      this.phase = { name: "qend", time: QEND_TIME };
-      this.emit({ type: "se", name: "pinpon" });
-      return;
-    }
-    this.showQuestion();
-  }
-
   private gameOver(): void {
     this.mode = null;
     this.modeView = null;
+    this.quiz = null;
     this.phase = { name: "over" };
     this.record = null;
     this.emit({ type: "bgm", name: null });
@@ -996,7 +921,6 @@ export class Game {
     this.checkpoint = {
       cameraZ: this.cameraZ,
       lane: this.lane,
-      collected: this.collected,
       questionIndex: this.questionIndex,
       run: { ...this.run },
       hits: Object.fromEntries(this.obstacles.map((obstacle) => [obstacle.id, obstacle.hit])),
@@ -1051,21 +975,19 @@ export class Game {
     const boat = laneX(this.displayLane());
     for (const obstacle of this.obstacles) {
       if (obstacle.hit) continue;
-      if (!(this.prevZ < obstacle.z && this.cameraZ >= obstacle.z)) continue;
+      const z = obstacle.kind === "enemy" ? obstacle.z - ENEMY_AHEAD : obstacle.z;
+      if (!(this.prevZ < z && this.cameraZ >= z)) continue;
       if (obstacle.kind === "choice") {
         obstacle.hit = true;
         this.moving = false;
         this.lane = 3;
-        this.phase = { name: "branch", time: BRANCH_APPROACH, choosing: false, fromX: boat, fromZ: this.cameraZ };
+        this.phase = { name: "branch", time: BRANCH_APPROACH, choosing: false, fromX: boat, fromZ: this.cameraZ + this.drift };
         this.emit({ type: "se", name: "bird" });
         break;
       }
       if (obstacle.kind === "enemy") {
         obstacle.hit = true;
-        this.moving = false;
-        this.gauge = 0;
-        this.inline = true;
-        this.showQuestion();
+        this.startQuiz(obstacle);
         break;
       }
       const aligned =
@@ -1073,12 +995,7 @@ export class Game {
       if (!aligned) continue;
       obstacle.hit = true;
       if (obstacle.kind === "rock" || obstacle.kind === "mover") this.damage();
-      else if (obstacle.kind === "nazo") {
-        this.collected += 1;
-        this.run.totalQuestions += 1;
-        this.emit({ type: "nazoGet", x: this.obstacleX(obstacle), z: obstacle.z });
-        this.emit({ type: "se", name: "syukin" });
-      } else if (obstacle.kind === "windL" || obstacle.kind === "windR") {
+      else if (obstacle.kind === "windL" || obstacle.kind === "windR") {
         this.wind = 5;
         this.windDir = obstacle.kind === "windL" ? 1 : 2;
         this.emit({ type: "wind", dir: obstacle.kind === "windL" ? -1 : 1, duration: 5 });
@@ -1088,16 +1005,22 @@ export class Game {
     this.prevZ = this.cameraZ;
   }
 
-  private damage(): void {
-    if (this.damaging > 0) return;
-    this.life = Math.max(0, this.life - 300);
+  // Returns false when the last heart is gone (the run is over).
+  private loseHeart(): boolean {
+    this.lifePoint = Math.max(0, this.lifePoint - 1);
     this.run.noDamage = false;
     this.emit({ type: "se", name: "bashi" });
-    if (this.life <= 0) {
+    if (this.lifePoint <= 0) {
       this.gameOver();
-      return;
+      return false;
     }
     this.emit({ type: "damage" });
+    return true;
+  }
+
+  private damage(): void {
+    if (this.damaging > 0) return;
+    if (!this.loseHeart()) return;
     this.gauge = 0;
     this.speed = 0.2;
     this.damaging = 1.2;

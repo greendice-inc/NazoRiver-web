@@ -219,10 +219,7 @@ export const bossQuestions: BossQuestion[] = [
   { id: 223, file: "223", answers: ["ずがいこつ"], area: "ワニ", type: "ワニ_蚊、蛾", extra: ["が", "", ""] },
   { id: 224, file: "224", answers: ["かいこく"], area: "ワニ", type: "ワニ_ふつう虫", extra: ["かいこ", "か", ""] },
   { id: 225, file: "225", answers: ["せみなー"], area: "ワニ", type: "ワニ_ふつう虫", extra: ["せみ", "", ""] },
-  { id: 226, file: "226", answers: ["しおむすび"], area: "ロブ", type: "ロブ_lv2_5文字", extra: ["", "", ""] },
-  { id: 227, file: "227", answers: ["おくりもの"], area: "ロブ", type: "ロブ_lv2_5文字", extra: ["", "", ""] },
-  { id: 228, file: "228", answers: ["さいくろん"], area: "ロブ", type: "ロブ_lv2_5文字", extra: ["", "", ""] },
-  { id: 229, file: "229", answers: ["かたつむり"], area: "ロブ", type: "ロブ_lv2_5文字", extra: ["", "", ""] },
+  // 226–229 (しおむすび / おくりもの / さいくろん / かたつむり) have no question images in Unity or public/.
 ];
 
 export function questionsIn(area: string, type?: string): BossQuestion[] {

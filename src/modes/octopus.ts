@@ -311,19 +311,19 @@ export class Octopus extends Boss {
         const k = inQuad(seg(this.clock, card.dropAt, 1));
         dy = -(card.drop - 290 + 290 * k);
       }
-      nodes.push(img(`card${i}-back`, `${SPR}tako/nazo_back_octopus.png`, x, y + dy, 382.5, 297.5));
+      nodes.push(img(`card${i}-back`, `${SPR}tako/nazo_back_octopus.webp`, x, y + dy, 382.5, 297.5));
       if (live && card) nodes.push(img(`card${i}-image`, qimg(card.q.file), x, y + dy, 340, 255));
     });
-    nodes.push(...this.restNodes(`${SPR}tako/atoXkai_octopus.png`, this.rest, 600, 480, 360.6, 90.6, 600, 55));
-    nodes.push(img("norma-image", `${SPR}tako/Xhonnoshokushu_octopus.png`, 600, 390, 690.6, 90.6));
+    nodes.push(...this.restNodes(`${SPR}tako/atoXkai_octopus.webp`, this.rest, 600, 480, 360.6, 90.6, 600, 55));
+    nodes.push(img("norma-image", `${SPR}tako/Xhonnoshokushu_octopus.webp`, 600, 390, 690.6, 90.6));
     nodes.push({ key: "norma-num", text: String(Math.max(this.norma - this.defeat, 0)), x: 312, y: 390, w: 200, h: 100, size: 55, font: "wanpaku", color: "#fff" });
-    nodes.push(img("tako", this.ex ? `${SPR}tako/タコ改_本体素材.png` : `${SPR}tako/タコ_本体素材.png`, 0, -50, 540, 540));
+    nodes.push(img("tako", this.ex ? `${SPR}tako/タコ改_本体素材.webp` : `${SPR}tako/タコ_本体素材.webp`, 0, -50, 540, 540));
     if (live && this.stage === "play") nodes.push(this.timeNode(this.time));
     if (live) {
       this.legs.forEach((leg, i) => {
         const [x, y] = legPos[i];
-        nodes.push(img(`leg${i}`, `${RES}tako/${leg.file}.png`, x, y, 80, 480, { flipY: i >= 4 }));
-        if (leg.done) nodes.push(img(`leg${i}-done`, `${SPR}tako/kougekizumi.png`, x, y, 100.5, 300.5, { rot: -5 }));
+        nodes.push(img(`leg${i}`, `${RES}tako/${leg.file}.webp`, x, y, 80, 480, { flipY: i >= 4 }));
+        if (leg.done) nodes.push(img(`leg${i}-done`, `${SPR}tako/kougekizumi.webp`, x, y, 100.5, 300.5, { rot: -5 }));
       });
     }
     return nodes;

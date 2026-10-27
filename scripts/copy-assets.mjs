@@ -18,65 +18,65 @@ function copy(src, dest) {
 
 const ui = {
   "Sprites/ui": [
-    "heart_red.png",
-    "heart_black.png",
-    "bar-back_black.png",
-    "arrow_back_left.png",
-    "arrow_back_right.png",
-    "nazoget.png",
-    "seikai.png",
-    "zannen.png",
-    "popup_1.png",
-    "popup_2.png",
-    "popup_3.png",
-    "popup_start.png",
-    "popup_go.png",
-    "popup_shukkou.png",
-    "wakaremichida.png",
-    "shuchusen_1.png",
-    "shuchusen_2.png",
-    "shuchusen_3.png",
-    "kaze_left.png",
-    "kaze_right.png",
-    "nazo_back_normal.png",
-    "answerarea_back.png",
-    "waiting.png",
-    "nazowotokou.png",
-    "boat.png",
-    ...["ul", "ur", "dl", "dr"].flatMap((corner) => [`off_${corner}.png`, `on_${corner}.png`]),
+    "heart_red.webp",
+    "heart_black.webp",
+    "bar-back_black.webp",
+    "arrow_back_left.webp",
+    "arrow_back_right.webp",
+    "nazoget.webp",
+    "seikai.webp",
+    "zannen.webp",
+    "popup_1.webp",
+    "popup_2.webp",
+    "popup_3.webp",
+    "popup_start.webp",
+    "popup_go.webp",
+    "popup_shukkou.webp",
+    "wakaremichida.webp",
+    "shuchusen_1.webp",
+    "shuchusen_2.webp",
+    "shuchusen_3.webp",
+    "kaze_left.webp",
+    "kaze_right.webp",
+    "nazo_back_normal.webp",
+    "answerarea_back.webp",
+    "waiting.webp",
+    "nazowotokou.webp",
+    "boat.webp",
+    ...["ul", "ur", "dl", "dr"].flatMap((corner) => [`off_${corner}.webp`, `on_${corner}.webp`]),
   ],
   "Resources/ui": [
-    "bar_white.png",
-    "arrow_left.png",
-    "arrow_right.png",
-    "arrow_left_yellow.png",
-    "arrow_right_yellow.png",
-    ...Array.from({ length: 10 }, (_, i) => `q${i + 1}.png`),
+    "bar_white.webp",
+    "arrow_left.webp",
+    "arrow_right.webp",
+    "arrow_left_yellow.webp",
+    "arrow_right_yellow.webp",
+    ...Array.from({ length: 10 }, (_, i) => `q${i + 1}.webp`),
   ],
   "Resources/inst": [
-    "iwaba.png",
-    "keikoku.png",
-    "kawara.png",
-    "kaigyo.png",
-    "kyuryu.png",
-    "asase.png",
-    "nazotokitime_end.png",
+    "iwaba.webp",
+    "keikoku.webp",
+    "kawara.webp",
+    "kaigyo.webp",
+    "kyuryu.webp",
+    "asase.webp",
+    "nazotokitime_end.webp",
   ],
-  "Resources/route": ["branch_0.png", "branch_10.png", "branch_11.png", "branch_20.png", "branch_21.png", "branch_22.png", "branch_23.png"],
-  Sprites: ["BigCircle.png"],
+  "Resources/route": ["branch_0.webp", "branch_10.webp", "branch_11.webp", "branch_20.webp", "branch_21.webp", "branch_22.webp", "branch_23.webp"],
+  Sprites: ["BigCircle.webp"],
 };
 for (const [dir, files] of Object.entries(ui)) {
   for (const file of files) copy(from(dir, file), pub("art", file));
 }
-copy(from("Sprites/ui", "result.png"), pub("art", "result.png"));
+copy(from("Sprites/ui", "result.webp"), pub("art", "result.webp"));
 
 const mirrored = [
   ...["angry", "failed", "lastBoss", "question", "question_dochu", "shiritori", "silhouette", "tako", "totem", "wani", "inst", "gate", "ui", "route", "bgm", "se"].map(
     (dir) => `Resources/${dir}`,
   ),
   ...["wani", "tako", "kame", "totem", "lobster", "lastBoss", "ui", "apple"].map((dir) => `Sprites/${dir}`),
-  "Sprites/ura_sky.png",
-  "Sprites/ura_sky_mirror.png",
+  "Sprites/ura_sky.webp",
+  "Sprites/ura_sky_mirror.webp",
 ];
 function mirror(rel) {
   const src = from(rel);
@@ -91,30 +91,30 @@ function mirror(rel) {
   copy(src, dest);
 }
 for (const rel of mirrored) mirror(rel);
-for (let i = 0; i < 8; i++) copy(from("Resources/route", `route_${i}.png`), pub("art", "route", `route_${i}.png`));
+for (let i = 0; i < 8; i++) copy(from("Resources/route", `route_${i}.webp`), pub("art", "route", `route_${i}.webp`));
 for (const file of fs.readdirSync(from("Resources/trophy"))) {
-  if (file.endsWith(".png")) copy(from("Resources/trophy", file), pub("art", "trophy", file));
+  if (file.endsWith(".webp")) copy(from("Resources/trophy", file), pub("art", "trophy", file));
 }
 
 const world = [
-  "stone_1.png",
-  "stone_3.png",
-  "stone_4.png",
-  "stone_5.png",
-  "tree_1.png",
-  "tree_7.png",
-  "tree_8.png",
-  "tree_10.png",
+  "stone_1.webp",
+  "stone_3.webp",
+  "stone_4.webp",
+  "stone_5.webp",
+  "tree_1.webp",
+  "tree_7.webp",
+  "tree_8.webp",
+  "tree_10.webp",
 ];
 for (const file of world) copy(from("Sprites/ui", file), pub("world", file));
 
 const gates = [
-  "treegate_iwaba.png",
-  "treegate_keikoku.png",
-  "treegate_kyuryu.png",
-  "treegate_asase.png",
-  "treegate_kawara.png",
-  "treegate_kaigyo.png",
+  "treegate_iwaba.webp",
+  "treegate_keikoku.webp",
+  "treegate_kyuryu.webp",
+  "treegate_asase.webp",
+  "treegate_kawara.webp",
+  "treegate_kaigyo.webp",
 ];
 for (const file of gates) copy(from("Resources/gate", file), pub("gates", file));
 
@@ -194,7 +194,7 @@ for (const [src, dest] of skyFaces) {
     }
   }
   fs.mkdirSync(pub("water"), { recursive: true });
-  await sharp(out, { raw: { width, height, channels: 3 } }).png().toFile(pub("water", "bump.png"));
+  await sharp(out, { raw: { width, height, channels: 3 } }).webp().toFile(pub("water", "bump.webp"));
 }
 
 // WaterFresnel.psd: the fresnel curve lives in the alpha channel of row 0.
@@ -251,12 +251,12 @@ const questionSrc = from("Resources/question");
 const questionFiles = fs.readFileSync("scripts/question-files.txt", "utf8").trim().split(/\r?\n/);
 const missing = [];
 for (const file of questionFiles) {
-  const src = path.join(questionSrc, `${file}.png`);
+  const src = path.join(questionSrc, `${file}.webp`);
   if (!fs.existsSync(src)) {
     missing.push(file);
     continue;
   }
-  copy(src, pub("questions", `${file}.png`));
+  copy(src, pub("questions", `${file}.webp`));
 }
 
 for (const dir of fs.readdirSync("public")) {

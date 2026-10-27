@@ -1,4 +1,5 @@
 import { catalog, loadEarned, type RunRecord } from "./trophies";
+import { asset } from "./paths";
 
 const OUT_QUAD = "cubic-bezier(0.5, 1, 0.89, 1)";
 
@@ -46,7 +47,7 @@ export class ResultScreen {
     place(this.root, 960, 540, 1920, 1080);
     this.sheet = el("div", "abs result-sheet", this.root);
     place(this.sheet, 960, 540, 1920, 1080);
-    place(picture("/art/result.png", "abs", this.sheet), 960, 540, 1920, 1080);
+    place(picture(asset("art/result.webp"), "abs", this.sheet), 960, 540, 1920, 1080);
 
     this.route = picture("", "abs result-route", this.sheet);
     place(this.route, 960 - 520, 540 + 90, 700, 700);
@@ -111,7 +112,7 @@ export class ResultScreen {
       const trophy = record.trophies[i];
       slot.root.style.display = trophy ? "" : "none";
       if (!trophy) return;
-      slot.icon.src = `/art/trophy/${trophy.icon}.png`;
+      slot.icon.src = asset(`art/trophy/${trophy.icon}.webp`);
       slot.text.textContent = trophy.name;
       slot.badge.style.display = record.fresh.has(trophy.name) ? "" : "none";
     });
@@ -194,7 +195,7 @@ export class TrophyBook {
       const has = earned.has(card.entry.name);
       if (has) got += 1;
       card.root.classList.toggle("locked", !has);
-      card.icon.src = has ? `/art/trophy/${card.entry.icon}.png` : "/art/trophy/trophy_gray.png";
+      card.icon.src = asset(has ? `art/trophy/${card.entry.icon}.webp` : "art/trophy/trophy_gray.webp");
       fitText(card.name, has || !card.entry.secret ? card.entry.name : "？？？", 196, 30);
     }
     this.count.textContent = `${got} / ${this.cards.length}`;

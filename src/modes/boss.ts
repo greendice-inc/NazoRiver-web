@@ -1,6 +1,7 @@
 import { COUNTDOWN_START, countdownNodes, img, outQuad, popup, rect, RES, seg, SPR, txt, type SceneNode } from "../scene";
 import type { CameraPose } from "../types";
 import { baseView, Mode, shakeRoll, STEP, type Host, type ModeView } from "./mode";
+import { asset } from "../paths";
 
 export type BossKind = "octopus" | "lobster" | "totem" | "crocodile" | "tortoise" | "statue";
 
@@ -17,31 +18,31 @@ const introFolder: Record<Exclude<BossKind, "statue">, string> = {
 function introArt(kind: BossKind, ex: boolean): IntroArt {
   if (kind === "statue") {
     return {
-      back: `${SPR}lastBoss/intro_sekizou_3.png`,
-      moji: `${SPR}lastBoss/intro_sekizou_1.png`,
-      boss: `${SPR}lastBoss/intro_sekizou_2.png`,
+      back: `${SPR}lastBoss/intro_sekizou_3.webp`,
+      moji: `${SPR}lastBoss/intro_sekizou_1.webp`,
+      boss: `${SPR}lastBoss/intro_sekizou_2.webp`,
       rule: null,
     };
   }
   if (ex) {
-    const moji = kind === "totem" ? `${SPR}lastBoss/intro_totem_2 norowareta.png` : `${SPR}lastBoss/intro_${kind}_2_norowareta.png`;
+    const moji = kind === "totem" ? `${SPR}lastBoss/intro_totem_2 norowareta.webp` : `${SPR}lastBoss/intro_${kind}_2_norowareta.webp`;
     return {
-      back: `${SPR}lastBoss/intro_${kind}_back_norowareta.png`,
+      back: `${SPR}lastBoss/intro_${kind}_back_norowareta.webp`,
       moji,
-      boss: `${SPR}lastBoss/intro_${kind}_3_norowareta.png`,
+      boss: `${SPR}lastBoss/intro_${kind}_3_norowareta.webp`,
       rule: null,
     };
   }
   const folder = introFolder[kind];
   return {
-    back: `${SPR}${folder}/intro_${kind}_back.png`,
-    moji: `${SPR}${folder}/intro_${kind}_2.png`,
-    boss: `${SPR}${folder}/intro_${kind}_3.png`,
-    rule: `${RES}inst/rule_${kind}.png`,
+    back: `${SPR}${folder}/intro_${kind}_back.webp`,
+    moji: `${SPR}${folder}/intro_${kind}_2.webp`,
+    boss: `${SPR}${folder}/intro_${kind}_3.webp`,
+    rule: `${RES}inst/rule_${kind}.webp`,
   };
 }
 
-export const qimg = (file: string): string => `/questions/${file}.png`;
+export const qimg = (file: string): string => asset(`questions/${file}.webp`);
 
 type Stage = "intro" | "inst" | "countdown" | "play" | "angry" | "fail" | "end";
 
@@ -89,7 +90,6 @@ export abstract class Boss extends Mode {
       if (this.hasInstruction) {
         this.stage = "inst";
         this.t = 0;
-        this.host.convertHearts();
       } else {
         this.beginCountdown();
       }
@@ -101,7 +101,6 @@ export abstract class Boss extends Mode {
   private beginCountdown(): void {
     this.stage = "countdown";
     this.t = 0;
-    if (this.countdownPre > 0) this.host.convertHearts();
   }
 
   step(): void {
@@ -178,7 +177,7 @@ export abstract class Boss extends Mode {
     this.stage = "angry";
     this.t = 0;
     this.se("alert");
-    this.angryImage = `${RES}angry/okotta_${this.kind}_${num + 1}.png`;
+    this.angryImage = `${RES}angry/okotta_${this.kind}_${num + 1}.webp`;
     this.angryDone = done;
   }
 
@@ -250,7 +249,7 @@ export abstract class Boss extends Mode {
     const nodes = this.nodes();
     if (this.stage === "intro") nodes.push(...this.introNodes());
     if (this.stage === "inst" && this.kind !== "statue" && this.t >= CONVERT_TIME) {
-      nodes.push(img("angry-start", `${RES}angry/okotta_${this.kind}_1.png`, 0, 0, 1201, 981, { over: true, alpha: seg(this.t, CONVERT_TIME, 1) }));
+      nodes.push(img("angry-start", `${RES}angry/okotta_${this.kind}_1.webp`, 0, 0, 1201, 981, { over: true, alpha: seg(this.t, CONVERT_TIME, 1) }));
     }
     if (this.stage === "countdown") nodes.push(...countdownNodes(this.t - this.countdownPre));
     if (this.stage === "play" && this.t < 0.75) nodes.push(...countdownNodes(this.t + COUNTDOWN_START));
@@ -286,7 +285,7 @@ export abstract class Boss extends Mode {
     if (t >= 1) nodes.push(rect("fail-back", 0, 0, 1920, 1080, "#000", { over: true, alpha: seg(t, 1, 1) }));
     if (t >= 2) {
       const file = this.ex || this.kind === "statue" ? "shippai_ura" : `shippai_${this.kind}`;
-      nodes.push(img("fail-image", `${RES}failed/${file}.png`, 0, 0, 1920, 1080, { over: true, alpha: seg(t, 2, 1) }));
+      nodes.push(img("fail-image", `${RES}failed/${file}.webp`, 0, 0, 1920, 1080, { over: true, alpha: seg(t, 2, 1) }));
     }
     return nodes;
   }

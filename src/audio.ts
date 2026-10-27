@@ -1,3 +1,5 @@
+import { asset } from "./paths";
+
 const files: Record<string, string> = {
   op: "op.mp3",
   river: "river.mp3",
@@ -43,6 +45,21 @@ const files: Record<string, string> = {
   pupo: "pupo.mp3",
 };
 
+// BGM is loaded when playBgm() asks for it. SE is preloaded on unlock so first hits are not late.
+const BGM = new Set([
+  "op",
+  "river",
+  "question",
+  "tako",
+  "wani",
+  "kame",
+  "totem",
+  "zari",
+  "uraboss",
+  "urariver",
+  "uraquestion",
+]);
+
 const BGM_VOLUME = 0.55;
 const SE_VOLUME = 0.9;
 
@@ -60,7 +77,11 @@ export class Audio {
       this.master = this.context.createGain();
       this.master.gain.value = this.muted ? 0 : 1;
       this.master.connect(this.context.destination);
-      for (const name of Object.keys(files)) this.load(name);
+      // Title BGM first, then every SE. Other BGM waits for playBgm().
+      this.load("op");
+      for (const name of Object.keys(files)) {
+        if (!BGM.has(name)) this.load(name);
+      }
     }
     if (this.context.state === "suspended") void this.context.resume();
     if (this.wantedBgm && !this.bgm) this.playBgm(this.wantedBgm);
@@ -121,7 +142,7 @@ export class Audio {
     const file = files[name];
     const context = this.context;
     if (!file || !context) return Promise.resolve(null);
-    const promise = fetch(`/audio/${file}`)
+    const promise = fetch(asset(`audio/${file}`))
       .then((res) => res.arrayBuffer())
       .then((data) => context.decodeAudioData(data))
       .catch(() => null);

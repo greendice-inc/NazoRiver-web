@@ -1,7 +1,7 @@
 import { questionsIn, type BossQuestion } from "../data/bossQuestions";
 import { img, shuffle, SPR, txt, type SceneNode } from "../scene";
 import { Boss, qimg } from "./boss";
-import type { Host } from "./mode";
+import type { Host, ModeView } from "./mode";
 
 // Boss5Script / Boss5ExScript.
 const wordList = [
@@ -11,14 +11,22 @@ const wordList = [
 const kanaList = [..."ぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろわをんー"];
 const decoy: Record<number, string> = { 7: "お", 6: "お", 5: "き", 4: "な", 3: "は", 2: "さ", 1: "み" };
 const maxTimeList = [20, 20, 20, 30, 40];
-const arrowRot: Record<number, number> = { 1: -45, 2: -90, 3: -135, 4: 0, 6: 180, 7: 45, 8: 90, 9: 135 };
 
 const MAP_X = 550;
 const MAP_Y = -100;
+const CENTER = 5;
+// Heading in 90° counter-clockwise steps from "up": grid [row, col] step for each.
+const headingStep: [number, number][] = [
+  [-1, 0],
+  [0, -1],
+  [1, 0],
+  [0, 1],
+];
 
-function cell(direction: number): [number, number] {
-  const col = (direction - 1) % 3;
-  const row = Math.floor((direction - 1) / 3);
+// Panels 1–9 in keypad-like order: 1–3 top row, 5 = center.
+function cell(index: number): [number, number] {
+  const col = (index - 1) % 3;
+  const row = Math.floor((index - 1) / 3);
   return [(col - 1) * 200, (1 - row) * 200];
 }
 
@@ -29,7 +37,9 @@ export class Lobster extends Boss {
   private rest: number;
   private time: number;
   private timerHidden = false;
-  private direction = 0;
+  private pos = CENTER;
+  private heading = 0;
+  private gauge = 0;
   private panels: string[] = [];
   private answerText = "";
   private current: BossQuestion[] = [];
@@ -56,29 +66,68 @@ export class Lobster extends Boss {
 
   protected update(): void {
     if (!this.playing || !this.shown) return;
+    this.stepTurn();
     this.time -= 1 / 30;
     if (this.time <= 0) this.checkAnswer();
   }
 
-  // Panel 1–9 (keypad order, 5 = boat) chooses where to dodge.
-  tap(index: number): void {
-    if (!this.playing || !this.shown || index < 1 || index > 9 || index === 5) return;
-    this.direction = index;
+  // Same fill as the river: ±0.2 per stroke, 0.005/frame decay, turn 90° at ±1.
+  pressLeft(): void {
+    if (this.canSteer) this.gauge -= 0.2;
+  }
+
+  pressRight(): void {
+    if (this.canSteer) this.gauge += 0.2;
+  }
+
+  rowBoth(): void {
+    if (!this.canSteer) return;
+    const row = Math.floor((this.pos - 1) / 3) + headingStep[this.heading][0];
+    const col = ((this.pos - 1) % 3) + headingStep[this.heading][1];
+    if (row < 0 || row > 2 || col < 0 || col > 2) return;
+    this.pos = row * 3 + col + 1;
+    this.se("basha");
+  }
+
+  private get canSteer(): boolean {
+    return this.playing && this.shown;
+  }
+
+  private stepTurn(): void {
+    if (this.gauge > 0) this.gauge = Math.max(this.gauge - 0.005, 0);
+    else if (this.gauge < 0) this.gauge = Math.min(this.gauge + 0.005, 0);
+    if (this.gauge >= 1) {
+      this.heading = (this.heading + 3) % 4;
+      this.gauge = 0;
+    } else if (this.gauge <= -1) {
+      this.heading = (this.heading + 1) % 4;
+      this.gauge = 0;
+    }
+  }
+
+  protected viewExtras(view: ModeView): void {
+    const active = this.canSteer;
+    view.arrows = active;
+    view.gauge = this.gauge;
+    view.gaugeFull = Math.abs(this.gauge) >= 1;
+    view.showLeftArrow = active;
+    view.showRightArrow = active;
   }
 
   debugSolve(): void {
     if (!this.playing || !this.shown) return;
-    const index = this.panels.findIndex((text, i) => i !== 4 && text !== "" && !this.answerText.includes(text));
-    if (index >= 0) this.direction = index + 1;
+    const index = this.panels.findIndex((text, i) => i !== CENTER - 1 && text !== "" && !this.answerText.includes(text));
+    if (index >= 0) this.pos = index + 1;
     this.time = 0;
   }
 
+  // The boat must sit on a panel whose letter the claws don't attack (not in the answer).
   private checkAnswer(): void {
-    if (this.direction === 0) {
+    if (this.pos === CENTER) {
       this.damaged();
       return;
     }
-    const letter = this.panels[this.direction - 1];
+    const letter = this.panels[this.pos - 1];
     this.selected += letter;
     if (this.answerText.includes(letter)) {
       this.damaged();
@@ -98,7 +147,9 @@ export class Lobster extends Boss {
     else if (this.form <= 4) this.time = maxTimeList[this.form - 1];
     else this.timerHidden = true;
     this.rest = value;
-    this.direction = 0;
+    this.pos = CENTER;
+    this.heading = 0;
+    this.gauge = 0;
     if (this.ex) {
       if (value === 0) {
         this.shown = false;
@@ -169,32 +220,32 @@ export class Lobster extends Boss {
 
   protected nodes(): SceneNode[] {
     const live = this.shown && (this.stage === "play" || this.stage === "fail" || this.stage === "end");
-    const nodes: SceneNode[] = [img("robster", this.ex ? `${SPR}lobster/ザリガニ改_本体基本ポーズ.png` : `${SPR}lobster/ザリガニ_本体基本ポーズ.png`, 0, -112.08, 700, 600)];
+    const nodes: SceneNode[] = [img("robster", this.ex ? `${SPR}lobster/ザリガニ改_本体基本ポーズ.webp` : `${SPR}lobster/ザリガニ_本体基本ポーズ.webp`, 0, -112.08, 700, 600)];
     const pair = live && this.current.length === 2;
     if (pair) {
-      nodes.push(img("q2-back1", `${SPR}lobster/lobster_nazo.png`, -600, 100, 540, 420));
+      nodes.push(img("q2-back1", `${SPR}lobster/lobster_nazo.webp`, -600, 100, 540, 420));
       nodes.push(img("q2-image1", qimg(this.current[0].file), -600, 100, 480, 360));
-      nodes.push(img("q2-back2", `${SPR}lobster/lobster_nazo.png`, -600, -300, 540, 420));
+      nodes.push(img("q2-back2", `${SPR}lobster/lobster_nazo.webp`, -600, -300, 540, 420));
       nodes.push(img("q2-image2", qimg(this.current[1].file), -600, -300, 480, 360));
     } else {
-      nodes.push(img("q-back", `${SPR}lobster/lobster_nazo.png`, -600, -100, 720, 560));
+      nodes.push(img("q-back", `${SPR}lobster/lobster_nazo.webp`, -600, -100, 720, 560));
       if (live && this.current.length === 1) nodes.push(img("q-image", qimg(this.current[0].file), -600, -100, 640, 480));
       if (live && this.current.length === 0) nodes.push(txt("q-answer", this.answerText, -600, -100, 800, 100, 100, { font: "noto", color: "#323232" }));
     }
-    nodes.push(img("panel-image", `${SPR}lobster/lobster_map_2.png`, MAP_X, MAP_Y, 700, 700));
+    nodes.push(img("panel-image", `${SPR}lobster/lobster_map_2.webp`, MAP_X, MAP_Y, 700, 700));
     for (let d = 1; d <= 9; d++) {
       const [dx, dy] = cell(d);
       const text = live ? this.panels[d - 1] ?? "" : "";
       const spinY = this.spin && d !== 5 ? this.spin.offsets[d - 1] + (360 * (this.clock - this.spin.at)) / this.spin.period : 0;
-      nodes.push(txt(`panel${d}`, text, MAP_X + dx, MAP_Y + dy, 200, 200, 100, { font: d === 5 ? "ipa" : "noto", tap: d === 5 ? undefined : d, spinY }));
+      nodes.push(txt(`panel${d}`, text, MAP_X + dx, MAP_Y + dy, 200, 200, 100, { font: d === CENTER ? "ipa" : "noto", spinY }));
     }
-    nodes.push(img("boat", `${SPR}ui/boat.png`, MAP_X, MAP_Y, 200, 200));
-    if (live && this.direction) {
-      const [dx, dy] = cell(this.direction);
-      nodes.push(txt("arrow", "←", MAP_X + dx * 0.625, MAP_Y + dy * 0.625, 200, 200, 200, { rot: arrowRot[this.direction] }));
+    const [bx, by] = cell(live ? this.pos : CENTER);
+    nodes.push(img("boat", `${SPR}ui/boat.webp`, MAP_X + bx, MAP_Y + by, 170, 170, { rot: live ? this.heading * 90 : 0, alpha: live && this.pos !== CENTER ? 0.6 : 1 }));
+    if (live && this.stage === "play") {
+      nodes.push(txt("rc-help", "左を漕ぐ：右回り　右を漕ぐ：左回り　真ん中：前進", MAP_X, MAP_Y - 380, 900, 60, 36, { stroke: "#000" }));
     }
     if (live && this.stage === "play" && !this.timerHidden) nodes.push(this.timeNode(this.time));
-    nodes.push(...this.restNodes(`${SPR}lobster/atoXkai_lobster.png`, this.rest, 600, 440, 601, 151, 605, 90));
+    nodes.push(...this.restNodes(`${SPR}lobster/atoXkai_lobster.webp`, this.rest, 600, 440, 601, 151, 605, 90));
     return nodes;
   }
 }
