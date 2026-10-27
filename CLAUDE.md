@@ -16,6 +16,9 @@ https://cont.tumbleweed.jp/NazoRiver-web/ (add `?debug=true` for debug tools).
   Use `place(node, cx, cy, w, h)` (centre-based) for positioning.
 - `src/game.ts`: game state machine (`phase`), produces a `View` each step. `src/hud.ts` renders the View into DOM.
 - `src/title.ts` + `src/title.css` + `src/title-logo.svg`: title screen and intro animation (Web Animations API).
+- `src/titleWater.ts`: WebGL shader that animates the river/waterfall on the title, masked by
+  `public/art/title/water_mask.webp`. With `?debug=true`, `window.__titleWater.renderAt(sec)` draws one exact frame
+  (use it for frame-by-frame captures, since headless WebGL here runs at about 0.5 fps). The 3D world is not rendered while the title is up.
 - `src/menu.ts` + `src/menu.css`: hamburger menu (volume, record reset, debug jump/clear).
 - `src/audio.ts`: Web Audio. BGM/SE volume is saved in localStorage `nazoriver.volume`.
 - `src/trophies.ts`: achievements, stored in localStorage `nazoriver.trophies`.

@@ -12,5 +12,9 @@ Run inside this folder; intermediate files stay here (gitignored).
    shapes and rebuilds the logo SVG (3D extrusion, rims, gradient, animated waves, オンライン版 badge).
    Colours and stroke widths live in `gen_logo.py` (shapes) and `src/title.css` (strokes).
 
+6. `python water_mask.py`: builds the water mask for the live water (R river, G foam boost near banks/boat,
+   B waterfall). Save `water_mask.png` as lossless WebP to `public/art/title/water_mask.webp`.
+   The water itself is drawn by the shader in `src/titleWater.ts`.
+
 Note: `make_art.py` picks logo parts by connected-component ids (10/11 = ナゾリバー, 1 = 激流！, 2 = pill),
 which were read off the current art. If the source art changes, re-check them.

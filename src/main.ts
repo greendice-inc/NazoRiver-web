@@ -157,12 +157,14 @@ function frame(now: number): void {
   const jump = Math.abs(current.camera.z - previous.camera.z) > 5;
   const pose = jump ? current.camera : lerpPose(previous.camera, current.camera, t);
   world.setSecret(current.secret);
-  world.render(dt, pose, current.sprites, current.gate, {
-    props: current.props,
-    boat: current.boat,
-    totem: current.totem,
-    decor: current.decor,
-  });
+  // The title covers the whole stage, so skip the 3D world there and leave the GPU to the title water.
+  if (!current.titleScreen)
+    world.render(dt, pose, current.sprites, current.gate, {
+      props: current.props,
+      boat: current.boat,
+      totem: current.totem,
+      decor: current.decor,
+    });
   hud.update({ ...current, camera: pose }, dt);
   requestAnimationFrame(frame);
 }

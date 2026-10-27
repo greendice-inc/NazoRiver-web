@@ -1,6 +1,7 @@
 import { asset } from "./paths";
 import logoSvg from "./title-logo.svg?raw";
 import "./title.css";
+import { TitleWater } from "./titleWater";
 
 // Title: plain key visual slams in → 激流！ → ナゾリバー → オンライン版, then CLICK TO START.
 // Logo SVG coordinates are stage pixels (viewBox 20 10 1400 520), so parts line up with the key visual.
@@ -53,7 +54,8 @@ export class TitleScreen {
   private root: HTMLElement;
   private stage: HTMLElement;
   private bgWrap: HTMLElement;
-  private bg: HTMLImageElement;
+  private bgInner: HTMLElement;
+  private water: TitleWater;
   private lines: HTMLImageElement;
   private logo: HTMLElement;
   private geki: SVGGElement;
@@ -78,8 +80,17 @@ export class TitleScreen {
 
     this.bgWrap = el("div", "abs t-bg-wrap", this.stage);
     place(this.bgWrap, 960, 540, 1920, 1080);
-    this.bg = picture("art/title/bg.webp", "abs t-bg", this.bgWrap);
-    place(this.bg, 960, 540, 1920, 1080);
+    // bgInner carries the slow zoom so the key visual and the live water stay aligned.
+    this.bgInner = el("div", "abs t-bg-inner", this.bgWrap);
+    place(this.bgInner, 960, 540, 1920, 1080);
+    const bg = picture("art/title/bg.webp", "abs t-bg", this.bgInner);
+    place(bg, 960, 540, 1920, 1080);
+    this.water = new TitleWater(this.bgInner, asset("art/title/water_mask.webp"));
+    place(this.water.canvas, 960, 540, 1920, 1080);
+    this.water.setRunning(true);
+    if (import.meta.env.DEV || new URLSearchParams(location.search).get("debug") === "true") {
+      Object.assign(window, { __titleWater: this.water });
+    }
 
     const glow = el("div", "abs t-glow", this.stage);
     place(glow, 720, 270, 1700, 820);
@@ -113,16 +124,12 @@ export class TitleScreen {
     place(this.splash, 960, 540, 1920, 1080);
 
     this.corp = picture("art/title/tumbleweed.webp", "abs t-corp", this.stage);
-    place(this.corp, 300, 992, 236, 152);
+    place(this.corp, 190, 1004, 200, 125);
 
     this.start = el("div", "abs t-start", this.stage);
     place(this.start, 960, 990, 1100, 150);
     const touch = window.matchMedia("(pointer: coarse)").matches;
-    const label = el("div", "t-start-label", this.start);
-    label.innerHTML = `<svg viewBox="0 0 1100 150"><defs><linearGradient id="tStartFill" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0.3" stop-color="#fff"/><stop offset="0.65" stop-color="#fff38a"/><stop offset="1" stop-color="#ffc21a"/></linearGradient></defs>
-      <text x="550" y="104" text-anchor="middle" class="t-start-shadow">${touch ? "TAP TO START" : "CLICK TO START"}</text>
-      <text x="550" y="96" text-anchor="middle" class="t-start-text">${touch ? "TAP TO START" : "CLICK TO START"}</text></svg>`;
+    el("div", "t-start-label", this.start).textContent = touch ? "TAP TO START" : "CLICK TO START";
 
     this.flash = el("div", "abs t-flash", this.root);
     place(this.flash, 960, 540, 1920, 1080);
@@ -132,7 +139,7 @@ export class TitleScreen {
     // Hold the intro until the key visual and logo font are ready, so the first "bang" is not a blank frame.
     this.stage.style.opacity = "0";
     const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
-    void Promise.all([this.bg.decode().catch(() => undefined), fonts?.load('52px "Wanpaku"').catch(() => undefined)]).then(() => {
+    void Promise.all([bg.decode().catch(() => undefined), fonts?.load('52px "Wanpaku"').catch(() => undefined)]).then(() => {
       this.stage.style.opacity = "";
       if (this.state === "intro") this.play();
     });
@@ -140,6 +147,7 @@ export class TitleScreen {
 
   setVisible(visible: boolean): void {
     this.root.style.display = visible ? "" : "none";
+    this.water.setRunning(visible);
   }
 
   /** Called whenever the game comes back to the title: replay the intro after a run. */
@@ -253,7 +261,7 @@ export class TitleScreen {
         direction: "alternate",
         easing: "ease-in-out",
       }),
-      this.bg.animate([{ transform: "scale(1)" }, { transform: "scale(1.045)" }], {
+      this.bgInner.animate([{ transform: "scale(1)" }, { transform: "scale(1.045)" }], {
         duration: 14000,
         iterations: Infinity,
         direction: "alternate",
