@@ -19,6 +19,7 @@ https://cont.tumbleweed.jp/NazoRiver-web/ (add `?debug=true` for debug tools).
 - `src/titleWater.ts`: WebGL shader that animates the river/waterfall on the title, masked by
   `public/art/title/water_mask.webp`. With `?debug=true`, `window.__titleWater.renderAt(sec)` draws one exact frame
   (use it for frame-by-frame captures, since headless WebGL here runs at about 0.5 fps). The 3D world is not rendered while the title is up.
+- `src/titleParrot.ts`: parrot wing flap / beak squawk on the title (cut-out layers over the key visual).
 - `src/menu.ts` + `src/menu.css`: hamburger menu (volume, record reset, debug jump/clear).
 - `src/audio.ts`: Web Audio. BGM/SE volume is saved in localStorage `nazoriver.volume`.
 - `src/trophies.ts`: achievements, stored in localStorage `nazoriver.trophies`.

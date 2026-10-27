@@ -58,7 +58,7 @@ svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{VB[0]} {VB[1]} {VB[2
     </linearGradient>
     <pattern id="waves" width="96" height="26" patternUnits="userSpaceOnUse">
       <path d="M0 13 Q24 3 48 13 T96 13" fill="none" stroke="#fff" stroke-opacity="0.32" stroke-width="5"/>
-      <animateTransform attributeName="patternTransform" type="translate" from="0 0" to="96 0" dur="2.4s" repeatCount="indefinite"/>
+      <animateTransform attributeName="patternTransform" type="translate" from="0 0" to="96 0" dur="6s" repeatCount="indefinite"/>
     </pattern>
     <linearGradient id="badgeFill" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#3d6cf0"/>

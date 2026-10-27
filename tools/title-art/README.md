@@ -16,5 +16,9 @@ Run inside this folder; intermediate files stay here (gitignored).
    B waterfall). Save `water_mask.png` as lossless WebP to `public/art/title/water_mask.webp`.
    The water itself is drawn by the shader in `src/titleWater.ts`.
 
+7. `python parrot_parts.py` (needs `parrot_lab.npy` from labelling the parrot by its outlines): cuts the
+   parrot's wing / upper beak / lower jaw into `public/art/title/parrot_*.webp`, patches the background
+   under them and rewrites `bg.webp`. Paste the printed positions into `src/titleParrot.ts`.
+
 Note: `make_art.py` picks logo parts by connected-component ids (10/11 = ナゾリバー, 1 = 激流！, 2 = pill),
 which were read off the current art. If the source art changes, re-check them.

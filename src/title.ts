@@ -1,6 +1,7 @@
 import { asset } from "./paths";
 import logoSvg from "./title-logo.svg?raw";
 import "./title.css";
+import { TitleParrot } from "./titleParrot";
 import { TitleWater } from "./titleWater";
 
 // Title: plain key visual slams in → 激流！ → ナゾリバー → オンライン版, then CLICK TO START.
@@ -14,8 +15,8 @@ const OUT_EXPO = "cubic-bezier(0.16, 1, 0.3, 1)";
 const T_BG = 0;
 const T_GEKI = 650;
 const T_NAZO = 1150;
-const T_BADGE = 1750;
-const T_READY = 2250;
+const T_BADGE = 2350;
+const T_READY = 2850;
 
 type Handlers = {
   begin: () => void;
@@ -56,6 +57,7 @@ export class TitleScreen {
   private bgWrap: HTMLElement;
   private bgInner: HTMLElement;
   private water: TitleWater;
+  private parrot: TitleParrot;
   private lines: HTMLImageElement;
   private logo: HTMLElement;
   private geki: SVGGElement;
@@ -88,6 +90,7 @@ export class TitleScreen {
     this.water = new TitleWater(this.bgInner, asset("art/title/water_mask.webp"));
     place(this.water.canvas, 960, 540, 1920, 1080);
     this.water.setRunning(true);
+    this.parrot = new TitleParrot(this.bgInner);
     if (import.meta.env.DEV || new URLSearchParams(location.search).get("debug") === "true") {
       Object.assign(window, { __titleWater: this.water });
     }
@@ -148,6 +151,7 @@ export class TitleScreen {
   setVisible(visible: boolean): void {
     this.root.style.display = visible ? "" : "none";
     this.water.setRunning(visible);
+    this.parrot.setRunning(visible && this.state === "ready");
   }
 
   /** Called whenever the game comes back to the title: replay the intro after a run. */
@@ -208,19 +212,19 @@ export class TitleScreen {
     );
     this.at(T_GEKI + 220, () => this.impact("bashi", 14, 0.55));
 
-    // 3. ナゾリバー surges in from the right like a wave.
+    // 3. ナゾリバー glides in from the right like a swell, then settles.
     this.anim(
       this.nazo,
       [
-        { opacity: 0, transform: "translateX(900px) skewX(-24deg) scaleX(1.25)" },
-        { opacity: 1, transform: "translateX(-40px) skewX(8deg) scaleX(0.96)", offset: 0.6 },
-        { opacity: 1, transform: "translateX(12px) skewX(-2deg) scaleX(1.01)", offset: 0.82 },
-        { opacity: 1, transform: "translateX(0) skewX(0deg) scaleX(1)" },
+        { opacity: 0, transform: "translateX(640px) skewX(-12deg)" },
+        { opacity: 1, transform: "translateX(-22px) skewX(3deg)", offset: 0.55 },
+        { opacity: 1, transform: "translateX(6px) skewX(-1deg)", offset: 0.8 },
+        { opacity: 1, transform: "translateX(0) skewX(0deg)" },
       ],
-      { duration: 520, delay: T_NAZO, easing: "cubic-bezier(0.3, 0.7, 0.4, 1)" },
+      { duration: 1150, delay: T_NAZO, easing: "cubic-bezier(0.22, 0.75, 0.3, 1)" },
     );
-    this.at(T_NAZO + 300, () => {
-      this.impact("basha", 20, 0.7);
+    this.at(T_NAZO + 420, () => {
+      this.impact("basha", 9, 0.45);
       this.splashBurst();
     });
 
@@ -254,9 +258,10 @@ export class TitleScreen {
     if (this.state !== "intro") return;
     this.state = "ready";
     this.root.classList.add("ready");
+    this.parrot.setRunning(true);
     this.idle.push(
-      this.logo.animate([{ transform: "translateY(0) rotate(0deg)" }, { transform: "translateY(-10px) rotate(-0.4deg)" }], {
-        duration: 2200,
+      this.logo.animate([{ transform: "translateY(0) rotate(0deg)" }, { transform: "translateY(-6px) rotate(-0.25deg)" }], {
+        duration: 3800,
         iterations: Infinity,
         direction: "alternate",
         easing: "ease-in-out",
@@ -270,9 +275,9 @@ export class TitleScreen {
     );
     this.shines.forEach((shine, i) => {
       this.idle.push(
-        shine.animate([{ transform: "translateX(0)" }, { transform: "translateX(1900px)" }], {
-          duration: 4200,
-          delay: i * 140,
+        shine.animate([{ transform: "translateX(0)" }, { transform: "translateX(1900px)", offset: 0.4 }, { transform: "translateX(1900px)" }], {
+          duration: 7000,
+          delay: i * 220,
           iterations: Infinity,
           easing: "cubic-bezier(0.45, 0, 0.2, 1)",
         }),

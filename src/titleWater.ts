@@ -69,15 +69,15 @@ vec3 river(vec2 p, float boost, float t) {
   float Z = 300.0 / dy;
   float X = (p.x - 880.0) / dy;
   float far = smoothstep(0.9, 5.5, Z);
-  vec2 q = vec2(X * 2.4, Z * 1.15 + t * 0.62);
+  vec2 q = vec2(X * 2.4, Z * 1.15 + t * 0.24);
 
   // Domain warp gives the swirling, churning motion.
-  vec2 w = vec2(fbm(q * 0.8 + vec2(0.0, t * 0.12)), fbm(q * 0.8 + vec2(5.2, 1.3 - t * 0.09)));
+  vec2 w = vec2(fbm(q * 0.8 + vec2(0.0, t * 0.05)), fbm(q * 0.8 + vec2(5.2, 1.3 - t * 0.04)));
   vec2 r = q + 0.42 * w;
 
   float body = fbm(r * vec2(1.5, 2.4));
   // Jagged crests across the flow, like the spiky rapids in the art.
-  float spikes = 1.0 - abs(snoise(vec2(r.x * 7.0, r.y * 1.1 - t * 0.2)));
+  float spikes = 1.0 - abs(snoise(vec2(r.x * 7.0, r.y * 1.1 - t * 0.08)));
   float field = body + 0.2 * spikes * spikes + boost * 0.7 - far * 0.12;
 
   float e = 0.012 + far * 0.05;
@@ -93,8 +93,8 @@ vec3 river(vec2 p, float boost, float t) {
   c = mix(c, foamCol, foam);
 
   // Sun glints on the open water.
-  float g = snoise(p * 0.085 + vec2(t * 0.6, -t * 2.2));
-  float g2 = snoise(p * 0.03 + vec2(-t * 0.3, t * 0.5));
+  float g = snoise(p * 0.085 + vec2(t * 0.25, -t * 0.8));
+  float g2 = snoise(p * 0.03 + vec2(-t * 0.12, t * 0.2));
   c = mix(c, vec3(1.0), smoothstep(0.86, 0.93, g * 0.7 + g2 * 0.45) * (1.0 - foam) * (1.0 - far));
 
   // Distance haze toward the horizon (also hides noise shimmer there).
@@ -103,9 +103,9 @@ vec3 river(vec2 p, float boost, float t) {
 }
 
 vec3 waterfall(vec2 p, float t) {
-  vec2 q = vec2(p.x * 0.028, p.y * 0.0042 - t * 1.5);
+  vec2 q = vec2(p.x * 0.028, p.y * 0.0042 - t * 0.8);
   float s = fbm(q);
-  float streak = snoise(vec2(p.x * 0.07, p.y * 0.0018 - t * 1.25));
+  float streak = snoise(vec2(p.x * 0.07, p.y * 0.0018 - t * 0.7));
   float v = s + streak * 0.28;
   vec3 c = FALL0;
   c = mix(c, FALL1, smoothstep(-0.18, -0.16, v));
@@ -113,7 +113,7 @@ vec3 waterfall(vec2 p, float t) {
   c = mix(c, vec3(1.0), smoothstep(0.18, 0.20, v));
   // Mist where it hits the river.
   float mist = smoothstep(330.0, 440.0, p.y);
-  c = mix(c, vec3(1.0), mist * smoothstep(-0.2, 0.2, fbm(p * 0.02 + vec2(0.0, -t * 0.8))));
+  c = mix(c, vec3(1.0), mist * smoothstep(-0.2, 0.2, fbm(p * 0.02 + vec2(0.0, -t * 0.4))));
   return c;
 }
 
