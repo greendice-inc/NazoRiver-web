@@ -3,6 +3,7 @@ import { debugEnabled } from "./debug";
 import { Game, STEP } from "./game";
 import { Hud } from "./hud";
 import { RowInput } from "./rowing";
+import { resetEarned } from "./trophies";
 import type { CameraPose, View } from "./types";
 import { World } from "./world";
 
@@ -38,7 +39,10 @@ const hud = new Hud(stage, {
   echo: (text) => game.setEcho(text),
   toggleMute: () => audio.toggleMute(),
   se: (name) => audio.se(name),
-  ...(debugOn ? { jump: (level: number) => game.debugJump(level) } : {}),
+  volume: (kind) => audio.volume(kind),
+  setVolume: (kind, value) => audio.setVolume(kind, value),
+  resetRecords: () => resetEarned(),
+  ...(debugOn ? { jump: (level: number) => game.debugJump(level), clearStage: () => game.debugClear() } : {}),
 });
 
 const layout = { scale: 1, left: 0, top: 0 };
@@ -98,6 +102,10 @@ window.addEventListener("keydown", (event) => {
   if (current.waitTap && !typing && (event.code === "Space" || event.code === "Enter")) {
     event.preventDefault();
     game.advance();
+    return;
+  }
+  if (!typing && (event.code === "Space" || event.code === "Enter") && game.view().phase === "title" && !hud.overlayKey(event.code)) {
+    if (hud.titleKey(event.code)) event.preventDefault();
     return;
   }
   if (event.code !== "Escape") return;

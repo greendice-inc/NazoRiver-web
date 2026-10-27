@@ -1,0 +1,239 @@
+/* ---------- Title screen ---------- */
+
+.title {
+  overflow: hidden;
+  cursor: pointer;
+  background: #0b1a2e;
+}
+
+.t-stage {
+  transition: opacity 0.2s;
+}
+
+.t-bg-wrap {
+  overflow: hidden;
+  transform-origin: 58% 52%;
+}
+
+.t-bg {
+  transform-origin: 62% 55%;
+  filter: saturate(1.12) contrast(1.04);
+}
+
+.t-glow {
+  pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.62), rgba(255, 252, 230, 0.32) 55%, rgba(255, 255, 255, 0) 100%);
+}
+
+.t-vignette {
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 75% at 50% 45%, rgba(0, 0, 0, 0) 60%, rgba(10, 20, 45, 0.38) 100%),
+    linear-gradient(to top, rgba(8, 18, 40, 0.55), rgba(8, 18, 40, 0) 22%);
+}
+
+.t-lines {
+  pointer-events: none;
+  opacity: 0;
+  mix-blend-mode: screen;
+}
+
+.t-logo {
+  pointer-events: none;
+  transform-origin: 50% 60%;
+  filter: drop-shadow(0 14px 0 rgba(20, 12, 40, 0.22)) drop-shadow(0 0 22px rgba(255, 255, 255, 0.55));
+}
+
+.title-logo-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.title-logo-svg .k-part {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.title-logo-svg .k-out {
+  fill: #2a1204;
+  stroke: #2a1204;
+  stroke-width: 46px;
+  stroke-linejoin: round;
+}
+
+.title-logo-svg .k-side {
+  stroke-width: 36px;
+  stroke-linejoin: round;
+}
+
+.title-logo-svg .k-rim-out {
+  fill: #2a1204;
+  stroke: #2a1204;
+  stroke-width: 36px;
+  stroke-linejoin: round;
+}
+
+.title-logo-svg .k-rim {
+  fill: #fff;
+  stroke: #fff;
+  stroke-width: 24px;
+  stroke-linejoin: round;
+}
+
+.title-logo-svg .k-line {
+  fill: #2a1204;
+  stroke: #2a1204;
+  stroke-width: 12px;
+  stroke-linejoin: round;
+}
+
+.title-logo-svg .k-badge-text {
+  font-family: "Wanpaku", sans-serif;
+  font-size: 52px;
+  letter-spacing: 4px;
+  fill: url(#badgeText);
+  stroke: #2a1204;
+  stroke-width: 9px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.title-logo-svg .k-star {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+.title.ready .title-logo-svg .k-star {
+  animation: t-star 1.6s ease-in-out infinite alternate;
+}
+
+.title.ready .title-logo-svg .k-star + .k-star {
+  animation-delay: 0.8s;
+}
+
+@keyframes t-star {
+  from {
+    transform: rotate(-12deg) scale(0.9);
+  }
+  to {
+    transform: rotate(14deg) scale(1.12);
+  }
+}
+
+.t-sparkles {
+  pointer-events: none;
+  opacity: 0;
+}
+
+.t-sparkle svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.t-sparkle path {
+  fill: #fff;
+  filter: drop-shadow(0 0 6px rgba(255, 245, 170, 0.95));
+}
+
+.t-sparkle {
+  animation: t-twinkle 2.2s ease-in-out infinite;
+  transform: scale(0);
+}
+
+@keyframes t-twinkle {
+  0%,
+  100% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1) rotate(45deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.2) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+.t-splash {
+  pointer-events: none;
+}
+
+.t-drop {
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0 30%, #bff3ff 31% 70%, #5fc8f5 71%);
+  border: 3px solid #2a1204;
+}
+
+.t-corp {
+  pointer-events: none;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.25));
+}
+
+.t-start {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.t-start-label {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 16px rgba(255, 235, 140, 0.5));
+}
+
+.t-start-label svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.t-start-label text {
+  font-family: "Wanpaku", sans-serif;
+  font-size: 84px;
+  letter-spacing: 8px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.t-start-shadow {
+  fill: #2a1204;
+  stroke: #2a1204;
+  stroke-width: 18px;
+}
+
+.t-start-text {
+  fill: url(#tStartFill);
+  stroke: #2a1204;
+  stroke-width: 14px;
+}
+
+.title.ready .t-start-label {
+  animation: t-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes t-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+.t-flash {
+  pointer-events: none;
+  background: #fff;
+  opacity: 0;
+}
+
+.title.launching {
+  cursor: default;
+}

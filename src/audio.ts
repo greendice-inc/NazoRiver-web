@@ -62,6 +62,21 @@ const BGM = new Set([
 
 const BGM_VOLUME = 0.55;
 const SE_VOLUME = 0.9;
+const VOLUME_KEY = "nazoriver.volume";
+
+export type VolumeKind = "bgm" | "se";
+
+function loadVolumes(): Record<VolumeKind, number> {
+  const fallback = { bgm: 1, se: 1 };
+  try {
+    const raw = JSON.parse(localStorage.getItem(VOLUME_KEY) ?? "null") as Partial<Record<VolumeKind, unknown>> | null;
+    if (!raw) return fallback;
+    const pick = (value: unknown, d: number) => (typeof value === "number" && value >= 0 && value <= 1 ? value : d);
+    return { bgm: pick(raw.bgm, 1), se: pick(raw.se, 1) };
+  } catch {
+    return fallback;
+  }
+}
 
 export class Audio {
   private context: AudioContext | null = null;
@@ -70,6 +85,27 @@ export class Audio {
   private bgm: { name: string; source: AudioBufferSourceNode; gain: GainNode } | null = null;
   private wantedBgm: string | null = null;
   private muted = false;
+  private volumes = loadVolumes();
+
+  get ready(): boolean {
+    return !!this.context && this.context.state === "running";
+  }
+
+  volume(kind: VolumeKind): number {
+    return this.volumes[kind];
+  }
+
+  setVolume(kind: VolumeKind, value: number): void {
+    this.volumes[kind] = Math.max(0, Math.min(1, value));
+    try {
+      localStorage.setItem(VOLUME_KEY, JSON.stringify(this.volumes));
+    } catch {
+      // Storage may be unavailable; the volume still applies for this session.
+    }
+    if (kind === "bgm" && this.bgm && this.context) {
+      this.bgm.gain.gain.setTargetAtTime(BGM_VOLUME * this.volumes.bgm, this.context.currentTime, 0.05);
+    }
+  }
 
   unlock(): void {
     if (!this.context) {
@@ -100,7 +136,7 @@ export class Audio {
       if (!buffer) return;
       const source = context.createBufferSource();
       const gain = context.createGain();
-      gain.gain.value = SE_VOLUME;
+      gain.gain.value = SE_VOLUME * this.volumes.se;
       source.buffer = buffer;
       source.connect(gain).connect(this.master!);
       source.start();
@@ -129,7 +165,7 @@ export class Audio {
       source.buffer = buffer;
       source.loop = true;
       gain.gain.setValueAtTime(0, context.currentTime);
-      gain.gain.linearRampToValueAtTime(BGM_VOLUME, context.currentTime + 0.6);
+      gain.gain.linearRampToValueAtTime(BGM_VOLUME * this.volumes.bgm, context.currentTime + 0.6);
       source.connect(gain).connect(this.master!);
       source.start();
       this.bgm = { name, source, gain };
