@@ -122,7 +122,7 @@ void main() {
   float a = max(m.r, m.b);
   if (a < 0.004) discard;
   vec2 p = vUv * vec2(1920.0, 1080.0);
-  vec3 c = river(p, m.g, uTime);
+  vec3 c = river(p, m.g, uTime * 1.5);  // river runs 1.5x the waterfall's pace
   if (m.b > 0.004) c = mix(c, waterfall(p, uTime), m.b / a);
   gl_FragColor = vec4(c * a, a);
 }`;
