@@ -139,12 +139,16 @@ function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLSha
   return shader;
 }
 
+// Global slow-motion for the whole water animation (1 = shader's native speed).
+const TIME_SCALE = 0.3;
+
 export class TitleWater {
   readonly canvas: HTMLCanvasElement;
   private gl: WebGLRenderingContext | null;
   private uTime: WebGLUniformLocation | null = null;
   private ready = false;
   private running = false;
+  private frozen = false;
   private raf = 0;
   private start = performance.now();
 
@@ -208,6 +212,7 @@ export class TitleWater {
   }
 
   setRunning(running: boolean): void {
+    if (this.frozen) running = false;
     if (running === this.running) return;
     this.running = running;
     if (running && this.ready) this.loop();
@@ -223,6 +228,7 @@ export class TitleWater {
   /** Debug/capture: stop the loop and draw the water at an exact time (seconds). */
   renderAt(seconds: number): boolean {
     this.setRunning(false);
+    this.frozen = true;
     this.draw(seconds);
     return this.ready;
   }
@@ -232,7 +238,7 @@ export class TitleWater {
     if (!gl || !this.ready) return;
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.uniform1f(this.uTime, seconds);
+    gl.uniform1f(this.uTime, seconds * TIME_SCALE);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 }
