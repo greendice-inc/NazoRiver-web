@@ -3,6 +3,7 @@ import { debugEnabled } from "./debug";
 import { Game, STEP } from "./game";
 import { Hud } from "./hud";
 import { RowInput } from "./rowing";
+import { resetEarned } from "./trophies";
 import type { CameraPose, View } from "./types";
 import { World } from "./world";
 
@@ -38,7 +39,10 @@ const hud = new Hud(stage, {
   echo: (text) => game.setEcho(text),
   toggleMute: () => audio.toggleMute(),
   se: (name) => audio.se(name),
-  ...(debugOn ? { jump: (level: number) => game.debugJump(level) } : {}),
+  volume: (kind) => audio.volume(kind),
+  setVolume: (kind, value) => audio.setVolume(kind, value),
+  resetRecords: () => resetEarned(),
+  ...(debugOn ? { jump: (level: number) => game.debugJump(level), clearStage: () => game.debugClear() } : {}),
 });
 
 const layout = { scale: 1, left: 0, top: 0 };
@@ -100,6 +104,10 @@ window.addEventListener("keydown", (event) => {
     game.advance();
     return;
   }
+  if (!typing && (event.code === "Space" || event.code === "Enter") && game.view().phase === "title" && !hud.overlayKey(event.code)) {
+    if (hud.titleKey(event.code)) event.preventDefault();
+    return;
+  }
   if (event.code !== "Escape") return;
   if (hud.overlayKey(event.code) || (game.view().phase === "title" && hud.titleKey(event.code))) event.preventDefault();
 });
@@ -149,12 +157,14 @@ function frame(now: number): void {
   const jump = Math.abs(current.camera.z - previous.camera.z) > 5;
   const pose = jump ? current.camera : lerpPose(previous.camera, current.camera, t);
   world.setSecret(current.secret);
-  world.render(dt, pose, current.sprites, current.gate, {
-    props: current.props,
-    boat: current.boat,
-    totem: current.totem,
-    decor: current.decor,
-  });
+  // The title covers the whole stage, so skip the 3D world there and leave the GPU to the title water.
+  if (!current.titleScreen)
+    world.render(dt, pose, current.sprites, current.gate, {
+      props: current.props,
+      boat: current.boat,
+      totem: current.totem,
+      decor: current.decor,
+    });
   hud.update({ ...current, camera: pose }, dt);
   requestAnimationFrame(frame);
 }

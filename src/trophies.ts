@@ -74,6 +74,15 @@ export function loadEarned(): Set<string> {
   }
 }
 
+/** Wipe every earned trophy (menu → 記録をリセット). */
+export function resetEarned(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage may be unavailable; nothing was saved then.
+  }
+}
+
 function saveEarned(earned: Set<string>): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([...earned]));

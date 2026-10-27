@@ -390,6 +390,28 @@ export class Game {
     if (this.phase.name === "mode") this.mode?.debugSolve();
   }
 
+  /** Debug: treat the current stage as cleared. Modes solve themselves; rivers skip straight to the fork. */
+  debugClear(): boolean {
+    if (this.phase.name === "mode") {
+      this.mode?.debugSolve();
+      return true;
+    }
+    const name = this.phase.name;
+    if (name !== "cruise" && name !== "countdown" && name !== "intro") return false;
+    const choice = this.obstacles.find((obstacle) => obstacle.kind === "choice" && !obstacle.hit);
+    if (!choice) return false;
+    for (const obstacle of this.obstacles) obstacle.hit = true;
+    this.quiz = null;
+    this.damaging = 0;
+    this.moving = false;
+    this.cameraZ = choice.z;
+    this.prevZ = choice.z;
+    this.lane = 3;
+    this.phase = { name: "branch", time: BRANCH_APPROACH, choosing: false, fromX: laneX(this.displayLane()), fromZ: this.cameraZ + this.drift };
+    this.emit({ type: "se", name: "bird" });
+    return true;
+  }
+
   noteTouch(side: "l" | "r"): void {
     if (this.canAccelerate()) {
       const now = performance.now();

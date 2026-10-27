@@ -1,18 +1,26 @@
 import { asset } from "./paths";
-const OUT_QUAD = "cubic-bezier(0.5, 1, 0.89, 1)";
+import logoSvg from "./title-logo.svg?raw";
+import "./title.css";
+import { TitleParrot } from "./titleParrot";
+import { TitleWater } from "./titleWater";
 
-// GameStartScript lights Visual1..4 (upper-left, lower-left, upper-right, lower-right) as each rower gets ready.
-const seats = [
-  { corner: "ul", cx: 480, cy: 270 },
-  { corner: "dl", cx: 480, cy: 810 },
-  { corner: "ur", cx: 1440, cy: 270 },
-  { corner: "dr", cx: 1440, cy: 810 },
-] as const;
+// Title: plain key visual slams in → 激流！ → ナゾリバー → オンライン版, then CLICK TO START.
+// Logo SVG coordinates are stage pixels (viewBox 20 10 1400 520), so parts line up with the key visual.
+
+const OUT_BACK = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+const OUT_QUAD = "cubic-bezier(0.5, 1, 0.89, 1)";
+const OUT_EXPO = "cubic-bezier(0.16, 1, 0.3, 1)";
+
+// Intro timeline (ms)
+const T_BG = 0;
+const T_GEKI = 650;
+const T_NAZO = 1150;
+const T_BADGE = 2350;
+const T_READY = 2850;
 
 type Handlers = {
   begin: () => void;
   se: (name: string) => void;
-  trophies: () => void;
 };
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, parent: HTMLElement): HTMLElementTagNameMap[K] {
@@ -29,174 +37,313 @@ function place(node: HTMLElement, cx: number, cy: number, w: number, h: number):
   node.style.height = `${h}px`;
 }
 
-const steps: { zone: "left" | "center" | "right"; title: string; text: string }[] = [
-  { zone: "left", title: "左側を下へなぞる", text: "左のオールを漕いで\nボートは右へ！" },
-  { zone: "right", title: "右側を下へなぞる", text: "右のオールを漕いで\nボートは左へ！" },
-  { zone: "center", title: "真ん中を下へなぞる", text: "両方いっしょに漕いで\nスピードアップ！" },
-];
+function picture(src: string, className: string, parent: HTMLElement): HTMLImageElement {
+  const node = el("img", className, parent);
+  node.src = asset(src);
+  node.draggable = false;
+  node.alt = "";
+  return node;
+}
+
+const STAR = "M0 -10 L2.6 -2.6 L10 0 L2.6 2.6 L0 10 L-2.6 2.6 L-10 0 L-2.6 -2.6 Z";
+const sparkleSpots = [
+  [118, 70, 1.3], [470, 40, 0.9], [1150, 70, 1.1], [1400, 230, 1.4], [1330, 470, 0.8],
+  [640, 520, 1], [190, 330, 0.9], [960, 180, 0.7], [1240, 150, 0.9], [90, 240, 0.7],
+] as const;
 
 export class TitleScreen {
   private root: HTMLElement;
-  private art: HTMLElement;
-  private lit: HTMLImageElement[] = [];
-  private flashes: HTMLElement[] = [];
-  private howTo: HTMLElement;
-  private launching = false;
+  private stage: HTMLElement;
+  private bgWrap: HTMLElement;
+  private bgInner: HTMLElement;
+  private water: TitleWater;
+  private parrot: TitleParrot;
+  private lines: HTMLImageElement;
+  private logo: HTMLElement;
+  private geki: SVGGElement;
+  private nazo: SVGGElement;
+  private badge: SVGGElement;
+  private shines: SVGGElement[];
+  private splash: HTMLElement;
+  private sparkles: HTMLElement;
+  private corp: HTMLImageElement;
+  private start: HTMLElement;
+  private flash: HTMLElement;
+  private intro: Animation[] = [];
+  private idle: Animation[] = [];
   private timers: number[] = [];
+  private state: "intro" | "ready" | "launching" = "intro";
 
   constructor(parent: HTMLElement, private handlers: Handlers) {
     this.root = el("div", "abs title", parent);
     place(this.root, 960, 540, 1920, 1080);
-    this.art = el("div", "abs title-art", this.root);
-    place(this.art, 960, 540, 1920, 1080);
+    this.stage = el("div", "abs t-stage", this.root);
+    place(this.stage, 960, 540, 1920, 1080);
 
-    for (const seat of seats) {
-      const off = el("img", "abs", this.art);
-      off.src = asset(`art/off_${seat.corner}.webp`);
-      place(off, seat.cx, seat.cy, 962, 542);
-      const on = el("img", "abs title-lit", this.art);
-      on.src = asset(`art/on_${seat.corner}.webp`);
-      place(on, seat.cx, seat.cy, 962, 542);
-      this.lit.push(on);
-      const flash = el("div", "abs title-flash", this.art);
-      place(flash, seat.cx, seat.cy, 960, 540);
-      this.flashes.push(flash);
+    this.bgWrap = el("div", "abs t-bg-wrap", this.stage);
+    place(this.bgWrap, 960, 540, 1920, 1080);
+    // bgInner carries the slow zoom so the key visual and the live water stay aligned.
+    this.bgInner = el("div", "abs t-bg-inner", this.bgWrap);
+    place(this.bgInner, 960, 540, 1920, 1080);
+    const bg = picture("art/title/bg.webp", "abs t-bg", this.bgInner);
+    place(bg, 960, 540, 1920, 1080);
+    this.water = new TitleWater(this.bgInner, asset("art/title/water_mask.webp"));
+    place(this.water.canvas, 960, 540, 1920, 1080);
+    this.water.setRunning(true);
+    this.parrot = new TitleParrot(this.bgInner);
+    if (import.meta.env.DEV || new URLSearchParams(location.search).get("debug") === "true") {
+      Object.assign(window, { __titleWater: this.water });
     }
-    this.root.querySelectorAll("img").forEach((node) => (node.draggable = false));
 
-    const bar = el("div", "abs title-bar", this.root);
-    place(bar, 960, 1000, 820, 112);
-    const text = el("div", "title-text", bar);
+    const glow = el("div", "abs t-glow", this.stage);
+    place(glow, 720, 270, 1700, 820);
+    const vignette = el("div", "abs t-vignette", this.stage);
+    place(vignette, 960, 540, 1920, 1080);
+
+    this.lines = picture("art/shuchusen_1.webp", "abs t-lines", this.stage);
+    place(this.lines, 960, 540, 1920, 1080);
+
+    this.sparkles = el("div", "abs t-sparkles", this.stage);
+    place(this.sparkles, 960, 540, 1920, 1080);
+    sparkleSpots.forEach(([x, y, s], i) => {
+      const star = el("div", "abs t-sparkle", this.sparkles);
+      place(star, x, y, 44 * s, 44 * s);
+      star.style.animationDelay = `${(i * 0.37) % 2.2}s`;
+      star.innerHTML = `<svg viewBox="-11 -11 22 22"><path d="${STAR}"/></svg>`;
+    });
+
+    this.logo = el("div", "abs t-logo", this.stage);
+    this.logo.style.left = "20px";
+    this.logo.style.top = "10px";
+    this.logo.style.width = "1400px";
+    this.logo.style.height = "520px";
+    this.logo.innerHTML = logoSvg;
+    this.geki = this.logo.querySelector(".k-geki")!;
+    this.nazo = this.logo.querySelector(".k-nazo")!;
+    this.badge = this.logo.querySelector(".k-badge")!;
+    this.shines = Array.from(this.logo.querySelectorAll<SVGGElement>(".k-shine"));
+
+    this.splash = el("div", "abs t-splash", this.stage);
+    place(this.splash, 960, 540, 1920, 1080);
+
+    this.corp = picture("art/title/tumbleweed.webp", "abs t-corp", this.stage);
+    place(this.corp, 190, 1004, 200, 125);
+
+    this.start = el("div", "abs t-start", this.stage);
+    place(this.start, 960, 990, 1100, 150);
     const touch = window.matchMedia("(pointer: coarse)").matches;
-    el("div", "title-text-main", text).textContent = touch ? "タップしてはじめる！" : "クリックしてはじめる！";
-    el("div", "title-text-sub", text).textContent = "画面を下へなぞってボートを漕ごう";
+    el("div", "t-start-label", this.start).textContent = touch ? "TAP TO START" : "CLICK TO START";
 
-    const trophyButton = el("button", "abs title-how title-trophy", this.root);
-    place(trophyButton, 130, 1000, 200, 88);
-    trophyButton.type = "button";
-    trophyButton.textContent = "実績";
-    trophyButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.handlers.trophies();
+    this.flash = el("div", "abs t-flash", this.root);
+    place(this.flash, 960, 540, 1920, 1080);
+
+    this.root.querySelectorAll("img").forEach((node) => (node.draggable = false));
+    this.root.addEventListener("click", () => this.press());
+    // Hold the intro until the key visual and logo font are ready, so the first "bang" is not a blank frame.
+    this.stage.style.opacity = "0";
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    void Promise.all([bg.decode().catch(() => undefined), fonts?.load('52px "Wanpaku"').catch(() => undefined)]).then(() => {
+      this.stage.style.opacity = "";
+      if (this.state === "intro") this.play();
     });
-
-    if (document.fullscreenEnabled) {
-      const full = el("button", "abs title-full", this.root);
-      place(full, 1840, 80, 120, 72);
-      full.type = "button";
-      full.textContent = "全画面";
-      full.addEventListener("click", (event) => {
-        event.stopPropagation();
-        if (document.fullscreenElement) void document.exitFullscreen();
-        else
-          void document.documentElement
-            .requestFullscreen()
-            .then(() => (screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> }).lock?.("landscape"))
-            .catch(() => undefined);
-      });
-    }
-
-    const howButton = el("button", "abs title-how", this.root);
-    place(howButton, 1790, 1000, 200, 88);
-    howButton.type = "button";
-    howButton.textContent = "遊び方";
-    howButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.openHowTo(true);
-    });
-
-    this.howTo = el("div", "abs title-howto", this.root);
-    place(this.howTo, 960, 540, 1920, 1080);
-    this.buildHowTo(this.howTo, touch);
-    this.howTo.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.openHowTo(false);
-    });
-    this.howTo.style.display = "none";
-
-    this.root.addEventListener("click", () => this.readyAll());
   }
 
   setVisible(visible: boolean): void {
     this.root.style.display = visible ? "" : "none";
+    this.water.setRunning(visible);
+    this.parrot.setRunning(visible && this.state === "ready");
   }
 
+  /** Called whenever the game comes back to the title: replay the intro after a run. */
   reset(): void {
-    this.timers.forEach((id) => window.clearTimeout(id));
-    this.timers = [];
-    this.launching = false;
-    this.root.classList.remove("launching");
-    this.lit.forEach((node) => {
-      node.getAnimations().forEach((a) => a.cancel());
-      node.style.opacity = "0";
-    });
-    this.openHowTo(false);
+    if (this.state === "launching") this.play();
   }
 
   key(code: string): boolean {
-    if (code === "Escape" && this.howTo.style.display !== "none") {
-      this.openHowTo(false);
+    if (code === "Enter" || code === "Space") {
+      this.press();
       return true;
     }
     return false;
   }
 
-  private buildHowTo(root: HTMLElement, touch: boolean): void {
-    const sheet = el("div", "abs howto-sheet", root);
-    place(sheet, 960, 520, 1800, 940);
-    const story = el("div", "abs howto-story", sheet);
-    place(story, 470, 360, 840, 622);
-    const steer = el("div", "abs howto-rules", sheet);
-    place(steer, 1340, 470, 820, 860);
-    el("div", "howto-heading", steer).textContent = "遊び方";
-    const list = el("div", "howto-steps", steer);
-    for (const step of steps) {
-      const row = el("div", `howto-step row-${step.zone}`, list);
-      const pad = el("div", "howto-pad", row);
-      for (const zone of ["left", "center", "right"]) el("div", `howto-pad-col${zone === step.zone ? " on" : ""}`, pad);
-      const body = el("div", "howto-step-body", row);
-      el("div", "howto-step-title", body).textContent = step.title;
-      el("div", "howto-step-text", body).textContent = step.text;
-    }
-    const notes = el("div", "abs howto-notes", sheet);
-    place(notes, 470, 790, 840, 200);
-    for (const line of [
-      "体力は時間とともに減り、岩にぶつかると大きく減る",
-      "白く光る「ナゾ」を取ると、あとで謎解きタイム",
-      "答えを入力して正解すると体力が回復する",
-    ]) {
-      el("div", "howto-note", notes).textContent = line;
-    }
-    const close = el("div", "abs title-howto-close", root);
-    place(close, 960, 1040, 1920, 64);
-    close.textContent = touch ? "タップで閉じる" : "クリックで閉じる";
+  private clear(): void {
+    this.timers.forEach((id) => window.clearTimeout(id));
+    this.timers = [];
+    for (const a of [...this.intro, ...this.idle]) a.cancel();
+    this.intro = [];
+    this.idle = [];
+    this.splash.replaceChildren();
+    this.root.classList.remove("ready", "launching");
   }
 
-  private openHowTo(open: boolean): void {
-    this.howTo.style.display = open ? "" : "none";
+  private at(ms: number, fn: () => void): void {
+    this.timers.push(window.setTimeout(fn, ms));
   }
 
-  private readyAll(): void {
-    if (this.launching) return;
-    this.launching = true;
-    seats.forEach((_, n) => {
-      this.timers.push(window.setTimeout(() => this.light(n), n * 160));
+  private anim(target: Element, frames: Keyframe[], options: KeyframeAnimationOptions): Animation {
+    const a = target.animate(frames, { fill: "both", ...options });
+    this.intro.push(a);
+    return a;
+  }
+
+  private play(): void {
+    this.clear();
+    this.state = "intro";
+
+    // 1. Key visual bangs in (white flash + zoom punch).
+    this.anim(this.flash, [{ opacity: 1 }, { opacity: 0 }], { duration: 420, delay: T_BG, easing: OUT_QUAD });
+    this.anim(this.bgWrap, [{ transform: "scale(1.22)", filter: "brightness(1.6)" }, { transform: "scale(1)", filter: "brightness(1)" }], {
+      duration: 520,
+      delay: T_BG,
+      easing: OUT_EXPO,
     });
-    this.timers.push(window.setTimeout(() => this.launch(), seats.length * 160 + 260));
+    this.anim(this.sparkles, [{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: T_READY - 300 });
+
+    // 2. 激流！ slams down.
+    this.anim(
+      this.geki,
+      [
+        { opacity: 0, transform: "scale(2.6) rotate(-14deg)" },
+        { opacity: 1, transform: "scale(0.9) rotate(2deg)", offset: 0.62 },
+        { opacity: 1, transform: "scale(1) rotate(0deg)" },
+      ],
+      { duration: 360, delay: T_GEKI, easing: "cubic-bezier(0.55, 0, 0.6, 1)" },
+    );
+    this.at(T_GEKI + 220, () => this.impact("bashi", 14, 0.55));
+
+    // 3. ナゾリバー glides in from the right like a swell, then settles.
+    this.anim(
+      this.nazo,
+      [
+        { opacity: 0, transform: "translateX(640px) skewX(-12deg)" },
+        { opacity: 1, transform: "translateX(-22px) skewX(3deg)", offset: 0.55 },
+        { opacity: 1, transform: "translateX(6px) skewX(-1deg)", offset: 0.8 },
+        { opacity: 1, transform: "translateX(0) skewX(0deg)" },
+      ],
+      { duration: 1150, delay: T_NAZO, easing: "cubic-bezier(0.22, 0.75, 0.3, 1)" },
+    );
+    this.at(T_NAZO + 420, () => {
+      this.impact("basha", 9, 0.45);
+      this.splashBurst();
+    });
+
+    // 4. オンライン版 badge stamps on.
+    this.anim(
+      this.badge,
+      [
+        { opacity: 0, transform: "scale(0) rotate(-20deg)" },
+        { opacity: 1, transform: "scale(1.25) rotate(4deg)", offset: 0.6 },
+        { opacity: 1, transform: "scale(1) rotate(0deg)" },
+      ],
+      { duration: 420, delay: T_BADGE, easing: OUT_BACK },
+    );
+    this.at(T_BADGE + 120, () => this.handlers.se("shakin"));
+
+    // 5. Start prompt + company logo.
+    this.anim(this.start, [{ opacity: 0, transform: "translateY(40px)" }, { opacity: 1, transform: "translateY(0)" }], {
+      duration: 420,
+      delay: T_READY,
+      easing: OUT_BACK,
+    });
+    this.anim(this.corp, [{ opacity: 0, transform: "translateY(20px)" }, { opacity: 1, transform: "translateY(0)" }], {
+      duration: 420,
+      delay: T_READY + 100,
+      easing: OUT_QUAD,
+    });
+    this.at(T_READY, () => this.ready());
   }
 
-  private light(index: number): void {
-    const lit = this.lit[index];
-    lit.getAnimations().forEach((a) => a.cancel());
-    lit.style.opacity = "1";
-    this.handlers.se("shakin");
-    lit.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: OUT_QUAD });
-    this.flashes[index].animate([{ opacity: 0.85 }, { opacity: 0 }], { duration: 480, easing: OUT_QUAD });
+  private ready(): void {
+    if (this.state !== "intro") return;
+    this.state = "ready";
+    this.root.classList.add("ready");
+    this.parrot.setRunning(true);
+    this.idle.push(
+      this.logo.animate([{ transform: "translateY(0) rotate(0deg)" }, { transform: "translateY(-6px) rotate(-0.25deg)" }], {
+        duration: 3800,
+        iterations: Infinity,
+        direction: "alternate",
+        easing: "ease-in-out",
+      }),
+      this.bgInner.animate([{ transform: "scale(1)" }, { transform: "scale(1.045)" }], {
+        duration: 14000,
+        iterations: Infinity,
+        direction: "alternate",
+        easing: "ease-in-out",
+      }),
+    );
+    this.shines.forEach((shine, i) => {
+      this.idle.push(
+        shine.animate([{ transform: "translateX(0)" }, { transform: "translateX(1900px)", offset: 0.4 }, { transform: "translateX(1900px)" }], {
+          duration: 7000,
+          delay: i * 220,
+          iterations: Infinity,
+          easing: "cubic-bezier(0.45, 0, 0.2, 1)",
+        }),
+      );
+    });
+  }
+
+  private skip(): void {
+    this.timers.forEach((id) => window.clearTimeout(id));
+    this.timers = [];
+    this.intro.forEach((a) => a.finish());
+    this.ready();
+  }
+
+  private press(): void {
+    if (this.state === "intro") {
+      this.skip();
+      return;
+    }
+    if (this.state !== "ready") return;
+    this.launch();
+  }
+
+  private impact(se: string, shake: number, lines: number): void {
+    this.handlers.se(se);
+    const s = shake;
+    this.stage.animate(
+      [
+        { transform: "translate(0,0)" },
+        { transform: `translate(${-s}px, ${s * 0.6}px)` },
+        { transform: `translate(${s * 0.8}px, ${-s * 0.5}px)` },
+        { transform: `translate(${-s * 0.45}px, ${s * 0.3}px)` },
+        { transform: `translate(${s * 0.2}px, 0)` },
+        { transform: "translate(0,0)" },
+      ],
+      { duration: 320, easing: "linear" },
+    );
+    this.lines.animate([{ opacity: lines, transform: "scale(1.15)" }, { opacity: 0, transform: "scale(1)" }], { duration: 380, easing: OUT_QUAD });
+  }
+
+  private splashBurst(): void {
+    for (let i = 0; i < 26; i++) {
+      const drop = el("div", "abs t-drop", this.splash);
+      const x = 260 + Math.random() * 1100;
+      const y = 380 + Math.random() * 90;
+      const size = 14 + Math.random() * 26;
+      place(drop, x, y, size, size);
+      const dx = (Math.random() - 0.3) * 260;
+      const up = 140 + Math.random() * 220;
+      drop.animate(
+        [
+          { transform: "translate(0,0) scale(0.4)", opacity: 1 },
+          { transform: `translate(${dx * 0.6}px, ${-up}px) scale(1)`, opacity: 1, offset: 0.45 },
+          { transform: `translate(${dx}px, ${-up * 0.4 + 120}px) scale(0.7)`, opacity: 0 },
+        ],
+        { duration: 700 + Math.random() * 400, easing: "cubic-bezier(0.2, 0.6, 0.5, 1)", fill: "forwards" },
+      ).onfinish = () => drop.remove();
+    }
   }
 
   private launch(): void {
+    this.state = "launching";
     this.root.classList.add("launching");
-    this.art.animate([{ transform: "scale(1.04)" }, { transform: "scale(1)" }], { duration: 400, easing: OUT_QUAD });
-    this.handlers.begin();
+    this.handlers.se("shakin");
+    this.start.animate([{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }], { duration: 260, easing: OUT_QUAD });
+    this.logo.animate([{ filter: "brightness(1)" }, { filter: "brightness(1.5)" }, { filter: "brightness(1)" }], { duration: 300, easing: OUT_QUAD });
+    this.at(260, () => this.handlers.begin());
   }
 }

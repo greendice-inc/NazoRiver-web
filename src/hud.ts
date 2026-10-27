@@ -1,4 +1,5 @@
-import { DebugMenu } from "./debug";
+import type { VolumeKind } from "./audio";
+import { Menu } from "./menu";
 import { ResultScreen, TrophyBook } from "./record";
 import type { RowZone } from "./rowing";
 import { SceneLayer } from "./sceneLayer";
@@ -18,7 +19,11 @@ type Handlers = {
   se: (name: string) => void;
   tap: (index: number) => void;
   advance: () => void;
+  volume: (kind: VolumeKind) => number;
+  setVolume: (kind: VolumeKind, value: number) => void;
+  resetRecords: () => void;
   jump?: (level: number) => void;
+  clearStage?: () => boolean;
 };
 
 const heartX = [-400, -250, -100, 50, 200];
@@ -94,7 +99,7 @@ export class Hud {
   private endingTime = 0;
   private result: ResultScreen;
   private book: TrophyBook;
-  private debug: DebugMenu | null = null;
+  private menu: Menu;
   private rowGuide: HTMLElement;
   private rowZones: HTMLElement;
   private rowColumns = new Map<RowZone, HTMLElement>();
@@ -239,7 +244,6 @@ export class Hud {
     this.title = new TitleScreen(this.root, {
       begin: () => this.handlers.begin(),
       se: (name) => this.handlers.se(name),
-      trophies: () => this.book.open(true),
     });
 
     this.shukko = image("/art/popup_shukkou.webp", "popup", this.root, 960, 540, 1921, 1000);
@@ -276,14 +280,23 @@ export class Hud {
       trophies: () => this.book.open(true),
     });
     this.book = new TrophyBook(this.root);
-    if (this.handlers.jump) {
-      this.debug = new DebugMenu(this.root, {
-        jump: (level) => this.handlers.jump!(level),
-        title: () => this.handlers.restart(),
-      });
-    }
+    this.menu = new Menu(this.root, {
+      volume: (kind) => this.handlers.volume(kind),
+      setVolume: (kind, value) => this.handlers.setVolume(kind, value),
+      preview: (kind) => {
+        if (kind === "se") this.handlers.se("pi");
+      },
+      resetRecords: () => this.handlers.resetRecords(),
+      ...(this.handlers.jump
+        ? {
+            jump: (level: number) => this.handlers.jump!(level),
+            clearStage: () => this.handlers.clearStage?.() ?? false,
+            title: () => this.handlers.restart(),
+          }
+        : {}),
+    });
 
-    for (const node of [...this.shuchu, this.windLeft, this.windRight, this.nazoGet, this.shukko, this.endingAlt, this.tapCatch]) show(node, false);
+    for (const node of [...this.shuchu, this.windLeft, this.windRight, this.nazoGet, this.shukko, this.endingAlt, this.tapCatch, this.ending, this.white, this.black]) show(node, false);
     for (const node of this.popups.values()) show(node, false);
   }
 
@@ -342,6 +355,7 @@ export class Hud {
     show(this.black, view.black > 0);
 
     show(this.header, !view.titleScreen);
+    this.menu.setMode(view.titleScreen ? "title" : this.handlers.jump ? "game" : "hidden");
     this.hearts.forEach((heart, i) => {
       const src = asset(i < view.hearts ? "u/Resources/ui/heart_red.webp" : "u/Resources/ui/heart_black.webp");
       if (heart.src !== src) heart.src = src;
@@ -428,7 +442,7 @@ export class Hud {
   }
 
   overlayKey(code: string): boolean {
-    if (this.debug?.key(code)) return true;
+    if (this.menu.key(code)) return true;
     if (!this.book.isOpen) return false;
     if (code === "Escape" || code === "Enter" || code === "Space") this.book.open(false);
     return true;
